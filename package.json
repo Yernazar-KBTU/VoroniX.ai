@@ -19,7 +19,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "node --test \"test/**/*.test.ts\"",
-    "check": "npm run typecheck && npm run lint && npm test"
+    "check": "npm run typecheck && npm run lint && npm test",
+    "proof:layers": "node src/proof/layers.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.8.0"

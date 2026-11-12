@@ -1,6 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
+import { passwordMatches, type Role } from "../auth/roles.ts";
 import { isObject } from "../config/validate.ts";
+import type { ToolRegistry } from "../tools/crm.ts";
+import { handleMcp } from "../tools/mcp.ts";
 import { ChatError, type ChatErrorCode, type ChatService, type Turn } from "../chat/service.ts";
 import {
   HttpError,
@@ -10,7 +13,6 @@ import {
   parseCookies,
   readJson,
   sendJson,
-  sendText,
   serializeCookie,
 } from "./http.ts";
 import type { ConsoleOverview, PublicInfo } from "./info.ts";
@@ -33,8 +35,14 @@ export interface AppDeps {
   readonly ready: boolean;
   readonly secureCookies: boolean;
   readonly sessionTtlSec: number;
-  /** Кому открыта консоль сотрудника. До шага 4 (вход и роли) только с этого компьютера. */
+  /** Кому открыта консоль без входа. По умолчанию только с компьютера, где запущен сервер. */
   readonly consoleAccess?: (req: IncomingMessage) => boolean;
+  /** Инструменты CRM для MCP (шаг 3). */
+  readonly tools?: ToolRegistry;
+  /** Пароль сотрудника (шаг 4). Без него вход выключен. */
+  readonly managerPassword?: string;
+  /** Отдельный лимит на попытки входа: подбор пароля упирается в него. */
+  readonly loginLimiter?: RateLimiter;
 }
 
 export interface App {
@@ -59,17 +67,11 @@ export function createApp(deps: AppDeps): App {
     deps.consoleAccess ?? ((req: IncomingMessage): boolean => isLoopbackAddress(req.socket.remoteAddress));
   const sessionId = (req: IncomingMessage): string | undefined => parseCookies(req.headers.cookie).get(SESSION_COOKIE);
 
+  const isManager = (req: IncomingMessage): boolean => deps.sessions.find(sessionId(req))?.role === "manager";
+  const staffAllowed = (req: IncomingMessage): boolean => consoleAllowed(req) || isManager(req);
   const page =
-    (file: string, staffOnly: boolean): Handler =>
+    (file: string): Handler =>
     async (req, res) => {
-      if (staffOnly && !consoleAllowed(req)) {
-        sendText(
-          res,
-          403,
-          "Консоль сотрудника открывается только на компьютере, где запущен сервер. Вход для сотрудников появится на шаге 4.",
-        );
-        return;
-      }
       if (!(await serveStatic(req, res, deps.webDir, file))) {
         throw new HttpError(404, "not_found", "Страница не найдена.");
       }
@@ -78,15 +80,13 @@ export function createApp(deps: AppDeps): App {
   const staff =
     (handler: Handler): Handler =>
     (req, res) =>
-      consoleAllowed(req)
+      staffAllowed(req)
         ? handler(req, res)
-        : Promise.reject(
-            new HttpError(403, "console_local_only", "Консоль сотрудника доступна только с компьютера, где запущен сервер."),
-          );
+        : Promise.reject(new HttpError(403, "staff_only", "Нужен вход сотрудника."));
 
   const beginTurn = (session: Session, message: unknown): Turn => {
     try {
-      return deps.chat.begin(session.conversation, message, session.tag);
+      return deps.chat.begin(session.conversation, message, session.tag, session.role);
     } catch (error) {
       if (error instanceof ChatError) {
         throw new HttpError(
@@ -180,8 +180,57 @@ export function createApp(deps: AppDeps): App {
 
   const history: Handler = (req, res) => {
     const session = deps.sessions.find(sessionId(req));
-    sendJson(res, 200, { messages: session?.conversation.transcript ?? [] });
+    sendJson(res, 200, { messages: session?.conversation.transcript ?? [], role: session?.role ?? "client" });
     return Promise.resolve();
+  };
+  const login: Handler = async (req, res) => {
+    if (!isSameOrigin(req)) {
+      throw new HttpError(403, "bad_origin", "Запрос с другого сайта отклонён.");
+    }
+    const body = await readJson(req, JSON_LIMIT_BYTES);
+    const limit = (deps.loginLimiter ?? deps.rateLimiter).hit(`login:${req.socket.remoteAddress ?? "unknown"}`);
+    if (!limit.ok) {
+      throw new HttpError(429, "rate_limited", `Слишком много попыток входа. Попробуйте через ${formatWait(limit.retryAfterSec)}.`, {
+        "retry-after": String(limit.retryAfterSec),
+      });
+    }
+    if (deps.managerPassword === undefined) {
+      throw new HttpError(503, "login_disabled", "Вход для сотрудников не настроен: на сервере не задан пароль.");
+    }
+    if (!passwordMatches(isObject(body) ? body["password"] : undefined, deps.managerPassword)) {
+      throw new HttpError(401, "bad_password", "Неверный пароль.");
+    }
+    const session = deps.sessions.elevate(sessionId(req), "manager");
+    sendJson(res, 200, { role: session.role }, {
+      "set-cookie": serializeCookie(SESSION_COOKIE, session.id, { maxAgeSec: deps.sessionTtlSec, secure: deps.secureCookies }),
+    });
+  };
+  const logout: Handler = async (req, res) => {
+    if (!isSameOrigin(req)) {
+      throw new HttpError(403, "bad_origin", "Запрос с другого сайта отклонён.");
+    }
+    await readJson(req, JSON_LIMIT_BYTES);
+    const session = deps.sessions.find(sessionId(req));
+    if (session !== undefined) {
+      session.role = "client";
+    }
+    sendJson(res, 200, { role: "client" });
+  };
+  const mcp: Handler = async (req, res) => {
+    if (!isSameOrigin(req)) {
+      throw new HttpError(403, "bad_origin", "Запрос с другого сайта отклонён.");
+    }
+    const body = await readJson(req, JSON_LIMIT_BYTES);
+    if (deps.tools === undefined) {
+      throw new HttpError(404, "not_found", "MCP не настроен.");
+    }
+    const role: Role = "manager";
+    const response = handleMcp(body, deps.tools, { role, unmask: (value) => value, now: Date.now() });
+    if (response === null) {
+      res.writeHead(202).end();
+      return;
+    }
+    sendJson(res, 200, response);
   };
 
   const json =
@@ -192,13 +241,16 @@ export function createApp(deps: AppDeps): App {
     };
 
   const routes = new Map<string, Readonly<Record<string, Handler>>>([
-    ["/", { GET: page("index.html", false) }],
-    ["/console", { GET: page("console.html", true) }],
+    ["/", { GET: page("index.html") }],
+    ["/console", { GET: page("console.html") }],
     ["/api/health", { GET: json(() => ({ ok: true })) }],
     ["/api/info", { GET: json(() => ({ ...deps.publicInfo, ready: deps.ready })) }],
     ["/api/history", { GET: history }],
     ["/api/chat", { POST: chat }],
     ["/api/reset", { POST: reset }],
+    ["/api/login", { POST: login }],
+    ["/api/logout", { POST: logout }],
+    ["/mcp", { POST: staff(mcp) }],
     ["/console/api/overview", { GET: staff(json(() => deps.consoleInfo())) }],
     ["/console/api/turns", { GET: staff(json(() => ({ turns: deps.chat.log.list() }))) }],
   ]);

@@ -11,3 +11,4 @@ coverage/
 # служебное
 .DS_Store
 *.log
+.proof-tmp/

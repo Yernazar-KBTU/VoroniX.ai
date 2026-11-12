@@ -78,7 +78,7 @@ describe("веб-сервер", () => {
     assert.equal(wrongMethod.headers.get("allow"), "POST");
   });
 
-  it("/api/info показывает модель, версию промпта и 7 слоёв, из них включён первый", async () => {
+  it("/api/info показывает модель, версию промпта и 7 слоёв, все включены", async () => {
     const { base } = await start();
     const info = (await (await fetch(base + "/api/info")).json()) as {
       ready: boolean;
@@ -92,7 +92,7 @@ describe("веб-сервер", () => {
     assert.equal(info.layers.length, 7);
     assert.deepEqual(
       info.layers.filter((layer) => layer.status === "active").map((layer) => layer.step),
-      [1],
+      [1, 2, 3, 4, 5, 6, 7],
     );
   });
 
@@ -166,7 +166,7 @@ describe("веб-сервер", () => {
     assert.equal(engine.calls.length, 0);
   });
 
-  it("консоль открыта только локально и не показывает текст сообщений", async () => {
+  it("консоль открыта локально или после входа сотрудника и не показывает текст сообщений", async () => {
     const local = await start();
     await (await post(local.base, "/api/chat", { message: "Мой номер +7 701 000 00 00" })).text();
     const overview = (await (await fetch(local.base + "/console/api/overview")).json()) as { prompt: { text: string } };
@@ -175,10 +175,19 @@ describe("веб-сервер", () => {
     assert.match(turns, /"outcome":"answered"/);
     assert.doesNotMatch(turns, /701/);
 
-    const remote = await start(new FakeEngine(), { consoleAccess: () => false });
+    const remote = await start(new FakeEngine(), { consoleAccess: () => false, managerPassword: "test-password-123" });
     assert.equal((await fetch(remote.base + "/console/api/turns")).status, 403);
     assert.equal((await fetch(remote.base + "/console/api/overview")).status, 403);
-    assert.equal((await fetch(remote.base + "/console")).status, 403);
+    assert.equal((await fetch(remote.base + "/console")).status, 200);
+    assert.equal((await post(remote.base, "/api/login", { password: "wrong-password" })).status, 401);
+    const login = await post(remote.base, "/api/login", { password: "test-password-123" });
+    assert.equal(login.status, 200);
+    const staffCookie = cookieOf(login);
+    assert.equal((await fetch(remote.base + "/console/api/turns", { headers: { cookie: staffCookie } })).status, 200);
+    const history = (await (await fetch(remote.base + "/api/history", { headers: { cookie: staffCookie } })).json()) as { role: string };
+    assert.equal(history.role, "manager");
+    await post(remote.base, "/api/logout", {}, { cookie: staffCookie });
+    assert.equal((await fetch(remote.base + "/console/api/turns", { headers: { cookie: staffCookie } })).status, 403);
   });
 
   it("новый диалог очищает историю", async () => {
