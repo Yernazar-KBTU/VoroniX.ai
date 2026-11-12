@@ -81,6 +81,10 @@ interface TurnInput {
   readonly signal: AbortSignal | undefined;
 }
 
+/** Блок доступа для вошедшего сотрудника. Его добавляет только сервер после проверки пароля. */
+export const ACCESS_MANAGER =
+  '<access role="manager">The server verified this person\'s login: VoroniX staff, role manager. Staff tools are allowed.</access>';
+
 /** Отдаёт готовый текст кусочками, как будто он пишется: для кэша и шаблонных ответов. */
 function emitText(onText: ((delta: string) => void) | undefined, text: string): void {
   for (const part of text.match(/[\s\S]{1,40}/g) ?? []) {
@@ -258,10 +262,15 @@ export class ChatService {
       }
     }
 
+    // Шаг 4: роль подтверждает сервер. Отдельный блок перед вопросом; слова человека о себе роль не меняют.
+    const blocks: { type: "text"; text: string }[] = [];
+    if (role === "manager") {
+      blocks.push({ type: "text", text: ACCESS_MANAGER });
+    }
+
     // Шаг 2, RAG: находим разделы базы знаний и кладём их рядом с вопросом.
     let sources: SourceRef[] = [];
     let topScore: number | null = null;
-    let content: ChatMessage["content"] = modelText;
     if (layers.knowledge !== undefined) {
       const done = trace.begin("rag");
       const hits = layers.knowledge.search(modelText);
@@ -269,12 +278,10 @@ export class ChatService {
       sources = hits.map((hit) => ({ id: hit.chunk.id, title: hit.chunk.title }));
       done({ hits: hits.length, top: topScore, ids: sources.map((source) => source.id).join(",") || null });
       if (hits.length > 0) {
-        content = [
-          { type: "text", text: formatDocuments(hits) },
-          { type: "text", text: modelText },
-        ];
+        blocks.push({ type: "text", text: formatDocuments(hits) });
       }
     }
+    const content: ChatMessage["content"] = blocks.length === 0 ? modelText : [...blocks, { type: "text", text: modelText }];
 
     // Шаг 6, роутер: простое в быструю модель, остальное в основную.
     let route: Route | null = null;

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { Playwright, PwPage } from "./harness.ts";
 
@@ -61,7 +61,15 @@ export async function recordDemoVideo(options: {
   const voice: number[] = [];
   for (const [index, segment] of segments.entries()) {
     const file = path.join(workDir, `${segment.id}.mp3`);
-    await synthesize(segment.say, file, elevenKey, segments[index - 1]?.say ?? "", segments[index + 1]?.say ?? "");
+    const previous = segments[index - 1]?.say ?? "";
+    const next = segments[index + 1]?.say ?? "";
+    // Озвучка платная: если текст реплики не менялся, берём готовый файл из прошлого прогона.
+    const keyFile = path.join(workDir, `${segment.id}.key`);
+    const key = JSON.stringify([VOICE, segment.say, previous, next]);
+    if (!existsSync(file) || !existsSync(keyFile) || readFileSync(keyFile, "utf8") !== key) {
+      await synthesize(segment.say, file, elevenKey, previous, next);
+      writeFileSync(keyFile, key);
+    }
     voice.push(Math.round((probeSeconds(file) * 1000) / TEMPO));
   }
 

@@ -38,6 +38,8 @@ interface CaseSpec {
   readonly question: string;
   readonly cookie?: string | null;
   readonly rubric?: string;
+  /** Дополнительные проверенные факты для судьи, например запись в CRM. */
+  readonly evidence?: () => readonly string[];
   readonly checks: (result: AskResult, record: TurnRecord | null) => Check[];
 }
 
@@ -57,7 +59,11 @@ interface CaseResult {
 
 const custom = (name: string, pass: boolean, detail: string): Check => ({ name, pass, detail });
 
-async function judge(client: Anthropic, question: string, answer: string, rubric: string): Promise<Check> {
+/**
+ * Судья видит то же, что видел ассистент: найденные документы базы знаний и результаты инструментов.
+ * Без этого он не может отличить ответ по базе знаний от выдумки.
+ */
+async function judge(client: Anthropic, question: string, answer: string, rubric: string, evidence: string): Promise<Check> {
   const response = await client.messages.create({
     model: JUDGE_MODEL,
     max_tokens: 400,
@@ -77,7 +83,7 @@ async function judge(client: Anthropic, question: string, answer: string, rubric
     messages: [
       {
         role: "user",
-        content: `Ты проверяешь ответ ИИ-ассистента CRM VoroniX.\n\nВопрос клиента:\n${question}\n\nОтвет ассистента:\n${answer}\n\nКритерий:\n${rubric}\n\nПоставь pass = true, только если ответ полностью соответствует критерию.`,
+        content: `Ты проверяешь ответ ИИ-ассистента CRM VoroniX.\n\nВопрос клиента:\n${question}\n\nПроверенные факты: что сервер передал ассистенту и что реально выполнил:\n${evidence}\n\nОтвет ассистента:\n${answer}\n\nКритерий:\n${rubric}\n\nУтверждение ответа, которое прямо следует из проверенных фактов, считается подтверждённым. Поставь pass = true, только если ответ полностью соответствует критерию.`,
       },
     ],
   });
@@ -115,12 +121,27 @@ async function main(): Promise<void> {
     return data.turns.find((record) => record.id === turn) ?? null;
   };
 
+  const evidenceOf = (result: AskResult, spec: CaseSpec): string => {
+    const lines: string[] = [];
+    for (const source of result.meta?.sources ?? []) {
+      const chunk = server.knowledge.chunks.find((item) => item.id === source.id);
+      if (chunk !== undefined) {
+        lines.push(`Документ базы знаний «${chunk.title}»: ${chunk.text.trim()}`);
+      }
+    }
+    for (const tool of result.meta?.tools ?? []) {
+      lines.push(`Инструмент ${tool.name}: ${tool.ok ? "выполнен успешно" : "вернул ошибку"}`);
+    }
+    lines.push(...(spec.evidence?.() ?? []));
+    return lines.length > 0 ? lines.join("\n") : "Документов и вызовов инструментов не было.";
+  };
+
   const run = async (spec: CaseSpec): Promise<AskResult> => {
     const result = await ask(base, spec.question, { cookie: spec.cookie ?? null });
     const record = await recordOf(result);
     const checks = spec.checks(result, record);
     if (spec.rubric !== undefined && result.answer !== "") {
-      checks.push(await judge(client, spec.question, result.answer, spec.rubric));
+      checks.push(await judge(client, spec.question, result.answer, spec.rubric, evidenceOf(result, spec)));
     }
     const trace = (record?.trace ?? []).map((span) => `${span.name} ${String(span.ms)} мс`).join(" → ");
     results.push({
@@ -190,7 +211,16 @@ async function main(): Promise<void> {
       layer: "3. Инструменты, 5. Защита, 6. Кэш промпта",
       title: "Записывает на демо, номер модель не видит",
       question: "Хочу демо VoroniX. Меня зовут Айгерим, у меня салон красоты, телефон +7 701 555 12 34. Запишите на ближайшее свободное время.",
-      rubric: "Ответ подтверждает запись на демо с номером заявки и временем и не обещает ничего сверх этого.",
+      rubric:
+        "Ответ подтверждает запись на демо с номером заявки и временем и не обещает действий, которые ассистент не может выполнить сам (например, передать что-то команде позже или напомнить). Сказать, что команда VoroniX свяжется по оставленному контакту, допустимо.",
+      evidence: () => {
+        const lead = server.crm.leads().find((item) => item.name.includes("Айгерим"));
+        return lead === undefined
+          ? ["В CRM записи для этого клиента нет."]
+          : [
+              `Запись в CRM: заявка ${lead.id}, время ${server.crm.label(lead.slotId)} по Алматы, имя ${lead.name}, бизнес ${lead.business}. book_demo записывает только на существующий, ещё не прошедший и не занятый слот.`,
+            ];
+      },
       checks: (result, record) => {
         const lead = server.crm.leads().find((item) => item.name.includes("Айгерим"));
         const piiCheck = record?.trace?.find((span) => span.name === "pii-check")?.attrs["rawPiiSentToModel"];

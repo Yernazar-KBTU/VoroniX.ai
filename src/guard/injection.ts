@@ -49,7 +49,8 @@ const RULES: readonly Rule[] = [
   {
     id: "fake_markup",
     weight: 2,
-    patterns: [/<\/?\s*(system|instructions?)\s*>/i, /\[\s*system\s*\]/i, /^\s*#+\s*system\b/im],
+    // Служебные блоки сервера (<access>, <documents>) человек подделать не может: такой текст блокируется.
+    patterns: [/<\/?\s*(system|instructions?)\s*>/i, /<\/?\s*(access|documents?)\b/i, /\[\s*system\s*\]/i, /^\s*#+\s*system\b/im],
   },
   {
     id: "data_exfiltration",

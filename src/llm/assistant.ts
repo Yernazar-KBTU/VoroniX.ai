@@ -228,7 +228,11 @@ export function summarizeReply(message: Message): ReplySummary {
     stopReason: message.stop_reason,
     refusalCategory: message.stop_reason === "refusal" ? (message.stop_details?.category ?? null) : null,
     servedBy: message.model,
-    fallbackUsed: message.content.some((block) => block.type === "fallback"),
+    // Блок fallback есть только в момент переключения. Закреплённый за запасной моделью диалог
+    // приходит без блока, поэтому главный признак: запись fallback_message в usage.iterations.
+    fallbackUsed:
+      message.content.some((block) => block.type === "fallback") ||
+      (message.usage.iterations ?? []).some((entry) => entry.type === "fallback_message"),
     inputTokens: message.usage.input_tokens,
     outputTokens: message.usage.output_tokens,
   };

@@ -15,6 +15,8 @@ export const PRICES_USD_PER_MTOK: Readonly<
 > = {
   "claude-opus-5-5": { input: 4, output: 20, cacheRead: 0.2 },
   "claude-haiku-5-5": { input: 0.1, output: 0.5, cacheRead: 0.01 },
+  /** Запасная модель: на неё сервер Anthropic переключает, если основная отказалась отвечать. */
+  "claude-opus-4-8": { input: 5, output: 25, cacheRead: 0.5 },
 };
 /** Запись в кэш промпта на 5 минут стоит 1,25 цены входа. */
 export const CACHE_WRITE_MULTIPLIER = 1.25;
