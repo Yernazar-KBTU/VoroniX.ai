@@ -1,0 +1,13 @@
+# зависимости и сборка
+node_modules/
+dist/
+coverage/
+
+# секреты: ключи только в переменных окружения
+.env
+.env.*
+!.env.example
+
+# служебное
+.DS_Store
+*.log
