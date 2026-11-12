@@ -1,0 +1,8 @@
+{
+  "name": "VoroniX.ai",
+  "promptVersion": "v1",
+  "model": "claude-opus-5-5",
+  "effort": "medium",
+  "maxTokens": 16000,
+  "refusalFallback": true
+}
