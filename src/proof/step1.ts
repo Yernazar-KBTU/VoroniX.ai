@@ -160,7 +160,9 @@ async function screenshots(base: string): Promise<string[]> {
     await page.screenshot({ path: path.join(SCREENS_DIR, name), fullPage });
     files.push(name);
   };
-  const answers = (count: number): string => `document.querySelectorAll('.msg.bot .meta').length >= ${count}`;
+  /* Строгий CSP страницы запрещает eval, поэтому ждём только селекторами. */
+  const answers = (count: number): string => `:nth-match(.msg.bot .meta, ${count})`;
+  const attached = { state: "attached", timeout: 180_000 } as const;
   const desktop = { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2, locale: "ru-RU" };
   const browser = await playwright.chromium.launch();
   try {
@@ -174,10 +176,10 @@ async function screenshots(base: string): Promise<string[]> {
     await page.waitForSelector(".msg.bot.pending .thinking");
     await page.waitForTimeout(1200);
     await shot(page, "02-thinking.png");
-    await page.waitForFunction(answers(1), undefined, { timeout: 180_000 });
+    await page.waitForSelector(answers(1), attached);
     await page.fill("#input", "VoroniX қазақ тілінде жауап бере ала ма?");
     await page.press("#input", "Enter");
-    await page.waitForFunction(answers(2), undefined, { timeout: 180_000 });
+    await page.waitForSelector(answers(2), attached);
     await page.waitForTimeout(400);
     await shot(page, "03-chat-dark.png");
 
@@ -192,7 +194,7 @@ async function screenshots(base: string): Promise<string[]> {
     await light.addCookies(cookies);
     const lightPage = await light.newPage();
     await lightPage.goto(base);
-    await lightPage.waitForFunction(answers(2));
+    await lightPage.waitForSelector(answers(2), attached);
     await lightPage.waitForTimeout(400);
     await shot(lightPage, "04-chat-light.png");
 
@@ -201,7 +203,7 @@ async function screenshots(base: string): Promise<string[]> {
     await mobile.addCookies(cookies);
     const mobilePage = await mobile.newPage();
     await mobilePage.goto(base);
-    await mobilePage.waitForFunction(answers(2));
+    await mobilePage.waitForSelector(answers(2), attached);
     await mobilePage.waitForTimeout(400);
     await shot(mobilePage, "05-mobile.png");
     await mobilePage.click("#open-side");

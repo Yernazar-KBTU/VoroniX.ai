@@ -200,8 +200,7 @@ export interface PwPage {
   fill(selector: string, value: string): Promise<void>;
   press(selector: string, key: string): Promise<void>;
   click(selector: string): Promise<void>;
-  waitForSelector(selector: string, options?: { readonly timeout?: number }): Promise<unknown>;
-  waitForFunction(expression: string, arg?: unknown, options?: { readonly timeout?: number }): Promise<unknown>;
+  waitForSelector(selector: string, options?: { readonly state?: "attached" | "visible"; readonly timeout?: number }): Promise<unknown>;
   waitForTimeout(ms: number): Promise<void>;
   screenshot(options: { readonly path: string; readonly fullPage?: boolean }): Promise<unknown>;
 }
