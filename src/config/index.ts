@@ -4,16 +4,19 @@ import { CONFIG_DIR, PROJECT_ROOT } from "./paths.ts";
 import { readJsonFile } from "./validate.ts";
 import { parseProductConfig, type ProductConfig } from "./product.ts";
 import { parseAssistantConfig, type AssistantConfig } from "./assistant.ts";
+import { parseServerConfig, type ServerConfig } from "./server.ts";
 
 export interface AppConfig {
   readonly product: ProductConfig;
   readonly assistant: AssistantConfig;
+  readonly server: ServerConfig;
 }
 
 export function loadAppConfig(configDir: string = CONFIG_DIR): AppConfig {
   return {
     product: parseProductConfig(readJsonFile(path.join(configDir, "product.json"))),
     assistant: parseAssistantConfig(readJsonFile(path.join(configDir, "assistant.json"))),
+    server: parseServerConfig(readJsonFile(path.join(configDir, "server.json"))),
   };
 }
 
@@ -26,3 +29,4 @@ export function loadDotEnv(file: string = path.join(PROJECT_ROOT, ".env")): void
 
 export type { ProductConfig } from "./product.ts";
 export type { AssistantConfig, Effort } from "./assistant.ts";
+export type { ServerConfig } from "./server.ts";

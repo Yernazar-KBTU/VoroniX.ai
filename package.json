@@ -10,8 +10,11 @@
     "node": ">=22.18.0"
   },
   "scripts": {
+    "start": "node src/server/main.ts",
+    "dev": "node --watch src/server/main.ts",
     "chat": "node src/cli/chat.ts",
     "demo:step1": "node src/demo/before-after.ts",
+    "proof:step1": "node src/proof/step1.ts",
     "prompt:show": "node src/cli/show-prompt.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

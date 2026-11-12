@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>VoroniX.ai · ассистент CRM VoroniX</title>
+  <meta name="description" content="ИИ-ассистент поддержки и продаж CRM VoroniX">
+  <meta name="author" content="Altynbekov Yernazar">
+  <meta name="color-scheme" content="dark light">
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/app.css">
+  <script src="/assets/theme.js"></script>
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="side" id="side" aria-label="О помощнике">
+    <div class="brand">
+      <img class="brand-logo" src="/assets/logo.svg" width="40" height="40" alt="">
+      <div class="brand-text">
+        <span class="brand-name">VoroniX<span class="grad">.ai</span></span>
+        <span class="brand-sub">ассистент CRM VoroniX</span>
+      </div>
+      <button class="icon-btn only-mobile" type="button" id="close-side" aria-label="Закрыть панель">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <section>
+      <h2 class="eyebrow">Слои ассистента</h2>
+      <p class="side-note">Каждый этап проекта добавляет ассистенту слой, который закрывает один провал бота с голым ключом API. Включённые слои работают в каждом ответе.</p>
+      <ol class="layers" id="layers"></ol>
+    </section>
+
+    <section>
+      <h2 class="eyebrow">Сейчас отвечает</h2>
+      <dl class="facts">
+        <div><dt>Модель</dt><dd class="mono" id="f-model">загрузка</dd></div>
+        <div><dt>Усилие</dt><dd class="mono" id="f-effort">загрузка</dd></div>
+        <div><dt>Промпт</dt><dd class="mono" id="f-prompt">загрузка</dd></div>
+      </dl>
+    </section>
+
+    <footer class="side-foot">
+      <a class="side-link" href="/console">Консоль сотрудника
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </a>
+      <span>Автор проекта: Altynbekov Yernazar</span>
+    </footer>
+  </aside>
+  <div class="scrim" id="scrim" hidden></div>
+
+  <main class="main">
+    <header class="top">
+      <button class="icon-btn only-mobile" type="button" id="open-side" aria-label="Слои ассистента">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>
+      </button>
+      <div class="who">
+        <span class="avatar"><img src="/assets/logo.svg" width="40" height="40" alt=""></span>
+        <div class="who-text">
+          <span class="who-name">VoroniX.ai</span>
+          <span class="who-sub"><span class="status-dot" id="status-dot"></span><span id="status-text">подключаюсь</span><span class="langs" id="status-langs" hidden>· RU · KZ · EN</span></span>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button class="chip-btn" type="button" id="toggle-details" aria-pressed="true" title="Показывать модель, время и токены под ответами">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          <span class="hide-sm">Детали</span>
+        </button>
+        <button class="icon-btn" type="button" id="toggle-theme" aria-label="Сменить тему" title="Сменить тему">
+          <svg class="ico when-dark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+          <svg class="ico when-light" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
+        </button>
+        <button class="chip-btn" type="button" id="new-chat">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          <span class="hide-sm">Новый диалог</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="banner" id="banner" role="status" hidden></div>
+
+    <section class="log" id="log" aria-live="polite" aria-label="Диалог">
+      <div class="hero" id="hero">
+        <img class="hero-logo" src="/assets/logo.svg" width="76" height="76" alt="">
+        <h1 class="hero-title">Здравствуйте, я <span class="grad">VoroniX.ai</span></h1>
+        <p class="hero-sub">Помогаю разобраться с CRM VoroniX: что она умеет, как подойдёт вашему бизнесу и с чего начать. Пишите на русском, қазақша или in English.</p>
+        <div class="suggest">
+          <button type="button" class="sugg">Что умеет VoroniX?</button>
+          <button type="button" class="sugg">Какую CRM выбрать для барбершопа?</button>
+          <button type="button" class="sugg">Сколько стоит VoroniX?</button>
+          <button type="button" class="sugg">VoroniX қазақша жауап бере ме?</button>
+          <button type="button" class="sugg">Do you integrate with Telegram?</button>
+        </div>
+      </div>
+    </section>
+
+    <form class="composer" id="composer" autocomplete="off">
+      <div class="field">
+        <textarea id="input" rows="1" maxlength="4000" placeholder="Спросите о VoroniX" aria-label="Сообщение"></textarea>
+        <button class="send" id="send" type="submit" aria-label="Отправить" title="Отправить">
+          <svg class="ico i-send" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          <svg class="ico i-stop" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+        </button>
+      </div>
+      <div class="composer-foot"><span class="hint">Enter отправить, Shift+Enter новая строка</span><span class="count" id="count"></span></div>
+    </form>
+    <p class="fine">Ответы пишет ИИ на модели Claude по фактам о VoroniX. Важные условия уточняйте у команды.</p>
+  </main>
+</div>
+<script src="/assets/chat.js" defer></script>
+</body>
+</html>
