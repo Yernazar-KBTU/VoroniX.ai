@@ -1,0 +1,21 @@
+# Render Blueprint для VoroniX.ai: Dashboard > New > Blueprint > этот репозиторий.
+# Ключ Anthropic вводится в Render при создании (sync: false), в репозиторий он не попадает.
+services:
+  - type: web
+    name: voronix-ai-assistant
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: VORONIX_MANAGER_PASSWORD
+        generateValue: true
+      - key: VORONIX_COOKIE_SECURE
+        value: "1"
+      - key: VORONIX_TRUST_PROXY
+        value: "1"

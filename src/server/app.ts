@@ -8,6 +8,7 @@ import { ChatError, type ChatErrorCode, type ChatService, type Turn } from "../c
 import {
   HttpError,
   applySecurityHeaders,
+  clientAddress,
   isLoopbackAddress,
   isSameOrigin,
   parseCookies,
@@ -37,6 +38,8 @@ export interface AppDeps {
   readonly sessionTtlSec: number;
   /** Кому открыта консоль без входа. По умолчанию только с компьютера, где запущен сервер. */
   readonly consoleAccess?: (req: IncomingMessage) => boolean;
+  /** Сервер стоит за прокси хостинга: адрес клиента берётся из X-Forwarded-For, консоль без входа не открывается. */
+  readonly trustProxy?: boolean;
   /** Инструменты CRM для MCP (шаг 3). */
   readonly tools?: ToolRegistry;
   /** Пароль сотрудника (шаг 4). Без него вход выключен. */
@@ -64,7 +67,9 @@ const CHAT_ERROR_STATUS: Readonly<Record<ChatErrorCode, number>> = {
 export function createApp(deps: AppDeps): App {
   const controllers = new Set<AbortController>();
   const consoleAllowed =
-    deps.consoleAccess ?? ((req: IncomingMessage): boolean => isLoopbackAddress(req.socket.remoteAddress));
+    deps.consoleAccess ??
+    ((req: IncomingMessage): boolean => deps.trustProxy !== true && isLoopbackAddress(req.socket.remoteAddress));
+  const clientIp = (req: IncomingMessage): string => clientAddress(req, deps.trustProxy === true);
   const sessionId = (req: IncomingMessage): string | undefined => parseCookies(req.headers.cookie).get(SESSION_COOKIE);
 
   const isManager = (req: IncomingMessage): boolean => deps.sessions.find(sessionId(req))?.role === "manager";
@@ -109,7 +114,7 @@ export function createApp(deps: AppDeps): App {
     }
     const body = await readJson(req, JSON_LIMIT_BYTES);
     const message = isObject(body) ? body["message"] : undefined;
-    const limit = deps.rateLimiter.hit(req.socket.remoteAddress ?? "unknown");
+    const limit = deps.rateLimiter.hit(clientIp(req));
     if (!limit.ok) {
       throw new HttpError(
         429,
@@ -188,7 +193,7 @@ export function createApp(deps: AppDeps): App {
       throw new HttpError(403, "bad_origin", "Запрос с другого сайта отклонён.");
     }
     const body = await readJson(req, JSON_LIMIT_BYTES);
-    const limit = (deps.loginLimiter ?? deps.rateLimiter).hit(`login:${req.socket.remoteAddress ?? "unknown"}`);
+    const limit = (deps.loginLimiter ?? deps.rateLimiter).hit(`login:${clientIp(req)}`);
     if (!limit.ok) {
       throw new HttpError(429, "rate_limited", `Слишком много попыток входа. Попробуйте через ${formatWait(limit.retryAfterSec)}.`, {
         "retry-after": String(limit.retryAfterSec),
