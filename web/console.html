@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Консоль сотрудника · VoroniX.ai</title>
+  <meta name="author" content="Altynbekov Yernazar">
+  <meta name="color-scheme" content="dark light">
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/app.css">
+  <script src="/assets/theme.js"></script>
+</head>
+<body class="console-page">
+<header class="top">
+  <a class="who" href="/">
+    <span class="avatar"><img src="/assets/logo.svg" width="40" height="40" alt=""></span>
+    <span class="who-text">
+      <span class="who-name">Консоль сотрудника</span>
+      <span class="who-sub">VoroniX.ai · обновлено <span class="mono" id="updated">загрузка</span></span>
+    </span>
+  </a>
+  <div class="top-actions">
+    <span class="pill hide-sm" title="Вход по ролям появится на шаге 4">доступ только с этого компьютера</span>
+    <button class="icon-btn" type="button" id="toggle-theme" aria-label="Сменить тему" title="Сменить тему">
+      <svg class="ico when-dark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+      <svg class="ico when-light" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
+    </button>
+    <a class="chip-btn" href="/">Открыть чат</a>
+  </div>
+</header>
+
+<main class="console-wrap">
+  <div class="banner" id="banner" role="status" hidden></div>
+
+  <section class="cards">
+    <div class="card"><div class="k">Ответов</div><div class="v" id="c-total">0</div><div class="s" id="c-outcomes">пока нет</div></div>
+    <div class="card"><div class="k">Первое слово, медиана</div><div class="v" id="c-first">нет</div><div class="s">от вопроса до первого слова</div></div>
+    <div class="card"><div class="k">Полный ответ, медиана</div><div class="v" id="c-full">нет</div><div class="s">от вопроса до последнего слова</div></div>
+    <div class="card"><div class="k">Токены</div><div class="v" id="c-tokens">0</div><div class="s" id="c-tokens-s">вход и выход</div></div>
+  </section>
+
+  <section class="grid2">
+    <div class="panel">
+      <div class="panel-head"><h2>Модель и сервер</h2></div>
+      <div class="panel-body"><dl class="facts" id="model-facts"></dl></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Слои ассистента</h2><span class="sub" id="layers-sub"></span></div>
+      <div class="panel-body"><ol class="layers" id="layers"></ol></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Последние ответы</h2><span class="sub">текст сообщений не хранится, только метрики</span></div>
+    <div class="table-wrap">
+      <table class="turns">
+        <thead><tr><th>Время</th><th>Сессия</th><th>Итог</th><th>Модель</th><th>Первое слово</th><th>Всего</th><th>Токены</th><th>ID запроса или ошибка</th></tr></thead>
+        <tbody id="turns"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="turns-empty">Пока нет ответов. Задайте вопрос в чате, и строка появится здесь.</div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Системный промпт</h2><span class="sub mono" id="prompt-sub"></span>
+      <div class="right"><button class="chip-btn" type="button" id="copy-prompt">Скопировать</button></div>
+    </div>
+    <pre class="code" id="prompt"></pre>
+  </section>
+</main>
+<script src="/assets/console.js" defer></script>
+</body>
+</html>

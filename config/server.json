@@ -1,0 +1,9 @@
+{
+  "maxInputChars": 4000,
+  "maxHistoryMessages": 40,
+  "sessionTtlMinutes": 120,
+  "maxSessions": 5000,
+  "maxConcurrentReplies": 16,
+  "rateLimit": { "messages": 30, "windowMinutes": 10 },
+  "turnLogSize": 200
+}

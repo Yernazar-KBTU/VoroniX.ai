@@ -1,0 +1,268 @@
+import type { IncomingMessage, ServerResponse } from "node:http";
+import path from "node:path";
+import { isObject } from "../config/validate.ts";
+import { ChatError, type ChatErrorCode, type ChatService, type Turn } from "../chat/service.ts";
+import {
+  HttpError,
+  applySecurityHeaders,
+  isLoopbackAddress,
+  isSameOrigin,
+  parseCookies,
+  readJson,
+  sendJson,
+  sendText,
+  serializeCookie,
+} from "./http.ts";
+import type { ConsoleOverview, PublicInfo } from "./info.ts";
+import type { RateLimiter } from "./rate-limit.ts";
+import type { Session, SessionStore } from "./sessions.ts";
+import { SseStream } from "./sse.ts";
+import { serveStatic } from "./static.ts";
+
+export const SESSION_COOKIE = "vx_sid";
+const JSON_LIMIT_BYTES = 64 * 1024;
+
+export interface AppDeps {
+  readonly chat: ChatService;
+  readonly sessions: SessionStore;
+  readonly rateLimiter: RateLimiter;
+  readonly publicInfo: PublicInfo;
+  readonly consoleInfo: () => ConsoleOverview;
+  readonly webDir: string;
+  /** Есть ли ключ API. Без него страница работает, а чат честно отвечает 503. */
+  readonly ready: boolean;
+  readonly secureCookies: boolean;
+  readonly sessionTtlSec: number;
+  /** Кому открыта консоль сотрудника. До шага 4 (вход и роли) только с этого компьютера. */
+  readonly consoleAccess?: (req: IncomingMessage) => boolean;
+}
+
+export interface App {
+  readonly handle: (req: IncomingMessage, res: ServerResponse) => void;
+  /** Прервать все идущие ответы: сервер останавливается. */
+  abortAll(): void;
+}
+
+type Handler = (req: IncomingMessage, res: ServerResponse) => Promise<void>;
+
+const CHAT_ERROR_STATUS: Readonly<Record<ChatErrorCode, number>> = {
+  empty: 400,
+  bad_input: 400,
+  too_long: 413,
+  busy: 409,
+  overloaded: 503,
+};
+
+export function createApp(deps: AppDeps): App {
+  const controllers = new Set<AbortController>();
+  const consoleAllowed =
+    deps.consoleAccess ?? ((req: IncomingMessage): boolean => isLoopbackAddress(req.socket.remoteAddress));
+  const sessionId = (req: IncomingMessage): string | undefined => parseCookies(req.headers.cookie).get(SESSION_COOKIE);
+
+  const page =
+    (file: string, staffOnly: boolean): Handler =>
+    async (req, res) => {
+      if (staffOnly && !consoleAllowed(req)) {
+        sendText(
+          res,
+          403,
+          "Консоль сотрудника открывается только на компьютере, где запущен сервер. Вход для сотрудников появится на шаге 4.",
+        );
+        return;
+      }
+      if (!(await serveStatic(req, res, deps.webDir, file))) {
+        throw new HttpError(404, "not_found", "Страница не найдена.");
+      }
+    };
+
+  const staff =
+    (handler: Handler): Handler =>
+    (req, res) =>
+      consoleAllowed(req)
+        ? handler(req, res)
+        : Promise.reject(
+            new HttpError(403, "console_local_only", "Консоль сотрудника доступна только с компьютера, где запущен сервер."),
+          );
+
+  const beginTurn = (session: Session, message: unknown): Turn => {
+    try {
+      return deps.chat.begin(session.conversation, message, session.tag);
+    } catch (error) {
+      if (error instanceof ChatError) {
+        throw new HttpError(
+          CHAT_ERROR_STATUS[error.code],
+          error.code,
+          error.message,
+          error.code === "overloaded" ? { "retry-after": "30" } : {},
+        );
+      }
+      throw error;
+    }
+  };
+
+  const chat: Handler = async (req, res) => {
+    if (!isSameOrigin(req)) {
+      throw new HttpError(403, "bad_origin", "Запрос с другого сайта отклонён.");
+    }
+    if (!deps.ready) {
+      throw new HttpError(503, "not_configured", "Ассистент пока не подключён к модели: на сервере не задан ключ API.");
+    }
+    const body = await readJson(req, JSON_LIMIT_BYTES);
+    const message = isObject(body) ? body["message"] : undefined;
+    const limit = deps.rateLimiter.hit(req.socket.remoteAddress ?? "unknown");
+    if (!limit.ok) {
+      throw new HttpError(
+        429,
+        "rate_limited",
+        `Слишком много сообщений подряд. Попробуйте через ${formatWait(limit.retryAfterSec)}.`,
+        { "retry-after": String(limit.retryAfterSec) },
+      );
+    }
+    const { session } = deps.sessions.resolve(sessionId(req));
+    const turn = beginTurn(session, message);
+    const controller = new AbortController();
+    controllers.add(controller);
+    // Клиент закрыл вкладку или нажал «Стоп»: прерываем запрос к модели, ответ не сохраняется.
+    res.once("close", () => {
+      if (!res.writableEnded) {
+        controller.abort();
+      }
+    });
+    try {
+      const sse = new SseStream(res, {
+        "set-cookie": serializeCookie(SESSION_COOKIE, session.id, {
+          maxAgeSec: deps.sessionTtlSec,
+          secure: deps.secureCookies,
+        }),
+      });
+      sse.send("meta", { turn: turn.id, model: deps.publicInfo.assistant.model, prompt: deps.publicInfo.prompt.fingerprint });
+      let thinking = false;
+      const result = await turn.run(
+        {
+          onThinking: () => {
+            if (!thinking) {
+              thinking = true;
+              sse.send("thinking", {});
+            }
+          },
+          onText: (text) => {
+            sse.send("delta", { text });
+          },
+          onFallback: (from, to) => {
+            sse.send("fallback", { from, to });
+          },
+        },
+        controller.signal,
+      );
+      if (result.outcome === "failed") {
+        sse.send("error", { code: "model_error", message: result.errorMessage ?? "Не получилось получить ответ." });
+      } else {
+        sse.send("done", { turn: result.id, ...result.meta });
+      }
+      sse.end();
+    } finally {
+      turn.release();
+      controllers.delete(controller);
+    }
+  };
+
+  const reset: Handler = async (req, res) => {
+    if (!isSameOrigin(req)) {
+      throw new HttpError(403, "bad_origin", "Запрос с другого сайта отклонён.");
+    }
+    await readJson(req, JSON_LIMIT_BYTES);
+    const session = deps.sessions.find(sessionId(req));
+    if (session !== undefined && !session.conversation.reset()) {
+      throw new HttpError(409, "busy", "Дождитесь окончания ответа или остановите его.");
+    }
+    sendJson(res, 200, { ok: true });
+  };
+
+  const history: Handler = (req, res) => {
+    const session = deps.sessions.find(sessionId(req));
+    sendJson(res, 200, { messages: session?.conversation.transcript ?? [] });
+    return Promise.resolve();
+  };
+
+  const json =
+    (produce: () => unknown): Handler =>
+    (_req, res) => {
+      sendJson(res, 200, produce());
+      return Promise.resolve();
+    };
+
+  const routes = new Map<string, Readonly<Record<string, Handler>>>([
+    ["/", { GET: page("index.html", false) }],
+    ["/console", { GET: page("console.html", true) }],
+    ["/api/health", { GET: json(() => ({ ok: true })) }],
+    ["/api/info", { GET: json(() => ({ ...deps.publicInfo, ready: deps.ready })) }],
+    ["/api/history", { GET: history }],
+    ["/api/chat", { POST: chat }],
+    ["/api/reset", { POST: reset }],
+    ["/console/api/overview", { GET: staff(json(() => deps.consoleInfo())) }],
+    ["/console/api/turns", { GET: staff(json(() => ({ turns: deps.chat.log.list() }))) }],
+  ]);
+
+  const dispatch = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+    applySecurityHeaders(res);
+    const url = new URL(req.url ?? "/", "http://localhost");
+    const method = req.method ?? "GET";
+    if (url.pathname.startsWith("/assets/")) {
+      if (method !== "GET" && method !== "HEAD") {
+        throw new HttpError(405, "method_not_allowed", "Метод не поддерживается.", { allow: "GET, HEAD" });
+      }
+      const assets = path.join(deps.webDir, "assets");
+      if (!(await serveStatic(req, res, assets, url.pathname.slice("/assets/".length)))) {
+        throw new HttpError(404, "not_found", "Файл не найден.");
+      }
+      return;
+    }
+    const route = routes.get(url.pathname);
+    if (route === undefined) {
+      throw new HttpError(404, "not_found", "Страница не найдена.");
+    }
+    const handler = route[method] ?? (method === "HEAD" ? route["GET"] : undefined);
+    if (handler === undefined) {
+      throw new HttpError(405, "method_not_allowed", "Метод не поддерживается.", {
+        allow: Object.keys(route).join(", "),
+      });
+    }
+    await handler(req, res);
+  };
+
+  return {
+    handle: (req, res) => {
+      dispatch(req, res).catch((error: unknown) => {
+        fail(res, error);
+      });
+    },
+    abortAll: () => {
+      for (const controller of controllers) {
+        controller.abort();
+      }
+    },
+  };
+}
+
+function fail(res: ServerResponse, error: unknown): void {
+  if (!(error instanceof HttpError)) {
+    console.error("[server]", error);
+  }
+  if (res.headersSent) {
+    if (!res.writableEnded) {
+      res.end();
+    }
+    return;
+  }
+  const http = error instanceof HttpError ? error : new HttpError(500, "internal", "Внутренняя ошибка сервера.");
+  sendJson(
+    res,
+    http.status,
+    { error: { code: http.code, message: http.message } },
+    { ...http.headers, ...(http.status === 413 ? { connection: "close" } : {}) },
+  );
+}
+
+function formatWait(seconds: number): string {
+  return seconds < 60 ? `${seconds} с` : `${Math.ceil(seconds / 60)} мин`;
+}

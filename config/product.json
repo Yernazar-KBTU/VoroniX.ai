@@ -1,0 +1,23 @@
+{
+  "name": "VoroniX",
+  "summary": "VoroniX is a CRM for companies of different kinds. It takes the data of a specific business (clients, services, staff, documents) and adapts to how that business works instead of forcing one fixed template.",
+  "audience": "Companies that work with clients, appointments or deals and want clients, schedule, sales and client messages in one place.",
+  "features": [
+    { "name": "Clients", "description": "One client base with contact details, visit and deal history, and notes." },
+    { "name": "Calendar and appointments", "description": "Booking by staff member and service, with appointment statuses." },
+    { "name": "Reminders", "description": "Reminders about upcoming appointments." },
+    { "name": "Sales pipeline", "description": "Deals moved through stages, so the team sees where each client is." },
+    { "name": "Services and staff", "description": "The list of services and the team, with who provides what." },
+    { "name": "Inbox", "description": "Client messages in one place. The built-in AI assistant can answer clients using the business's own data." },
+    { "name": "Knowledge base", "description": "Business documents and rules that the built-in AI assistant relies on." },
+    { "name": "Analytics", "description": "A dashboard with the key numbers of the business." },
+    { "name": "Data import", "description": "Import existing data from Excel, CSV, Word and text files." },
+    { "name": "Separate workspace per business", "description": "Each business works in its own workspace with its own data." }
+  ],
+  "channels": ["Telegram"],
+  "assistantLanguages": ["ru", "kk", "en"],
+  "pricing": { "published": false },
+  "competitors": ["Bitrix24", "HubSpot", "amoCRM (Kommo)", "Salesforce", "Zoho CRM", "Pipedrive", "monday CRM"],
+  "contacts": { "website": "https://yernazar-kbtu.github.io/VoroniX/" },
+  "nextStep": "offer to walk through how VoroniX would work with their own data, and point them to the website for the next step."
+}
