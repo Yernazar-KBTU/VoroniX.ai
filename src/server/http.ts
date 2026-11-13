@@ -144,6 +144,23 @@ export function isLoopbackAddress(address: string | undefined): boolean {
   return plain === "::1" || plain.startsWith("127.");
 }
 
+/**
+ * Адрес клиента. За прокси хостинга (Render и подобные) сокет видит только прокси,
+ * а настоящий адрес прокси дописывает последним в X-Forwarded-For. Берём последний:
+ * первые записи клиент может подделать сам.
+ */
+export function clientAddress(req: IncomingMessage, trustProxy: boolean): string {
+  const forwarded = req.headers["x-forwarded-for"];
+  const header = Array.isArray(forwarded) ? forwarded.join(",") : forwarded;
+  if (trustProxy && header !== undefined) {
+    const last = header.split(",").map((part) => part.trim()).filter((part) => part !== "").at(-1);
+    if (last !== undefined) {
+      return last;
+    }
+  }
+  return req.socket.remoteAddress ?? "unknown";
+}
+
 /** Браузер всегда присылает Origin в POST. Если он есть и не наш, запрос пришёл с чужого сайта. */
 export function isSameOrigin(req: IncomingMessage): boolean {
   const origin = req.headers.origin;

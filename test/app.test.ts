@@ -199,4 +199,19 @@ describe("веб-сервер", () => {
     const history = (await (await fetch(base + "/api/history", { headers: { cookie } })).json()) as { messages: unknown[] };
     assert.equal(history.messages.length, 0);
   });
+
+  it("за прокси хостинга консоль не открывается без входа, а лимит считается по настоящему адресу", async () => {
+    const { base } = await start(new FakeEngine(), {
+      trustProxy: true,
+      rateLimiter: new RateLimiter({ limit: 1, windowMs: 60_000 }),
+    });
+    assert.equal((await fetch(base + "/console/api/turns")).status, 403);
+    const first = await post(base, "/api/chat", { message: "Раз" }, { "x-forwarded-for": "1.1.1.1, 10.0.0.1" });
+    await first.text();
+    assert.equal(first.status, 200);
+    assert.equal((await post(base, "/api/chat", { message: "Два" }, { "x-forwarded-for": "10.0.0.1" })).status, 429);
+    const other = await post(base, "/api/chat", { message: "Три" }, { "x-forwarded-for": "10.0.0.2" });
+    await other.text();
+    assert.equal(other.status, 200);
+  });
 });

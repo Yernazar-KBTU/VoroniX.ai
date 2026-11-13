@@ -85,6 +85,7 @@ export async function startServer(options: StartOptions): Promise<RunningServer>
     webDir: WEB_DIR,
     ready,
     secureCookies: env["VORONIX_COOKIE_SECURE"] === "1",
+    trustProxy: env["VORONIX_TRUST_PROXY"] === "1",
     sessionTtlSec: limits.sessionTtlMinutes * 60,
     tools,
     loginLimiter: new RateLimiter({ limit: 5, windowMs: 10 * 60_000 }),
