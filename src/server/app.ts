@@ -3,6 +3,7 @@ import path from "node:path";
 import { passwordMatches, type Role } from "../auth/roles.ts";
 import { isObject } from "../config/validate.ts";
 import type { ToolRegistry } from "../tools/crm.ts";
+import { CrmBusyError, CrmInputError, parseCrmTurn, type CrmBridge } from "../crm/bridge.ts";
 import { handleMcp } from "../tools/mcp.ts";
 import { ChatError, type ChatErrorCode, type ChatService, type Turn } from "../chat/service.ts";
 import {
@@ -24,6 +25,7 @@ import { serveStatic } from "./static.ts";
 
 export const SESSION_COOKIE = "vx_sid";
 const JSON_LIMIT_BYTES = 64 * 1024;
+const CRM_LIMIT_BYTES = 512 * 1024;
 
 export interface AppDeps {
   readonly chat: ChatService;
@@ -40,6 +42,8 @@ export interface AppDeps {
   readonly consoleAccess?: (req: IncomingMessage) => boolean;
   /** Сервер стоит за прокси хостинга: адрес клиента берётся из X-Forwarded-For, консоль без входа не открывается. */
   readonly trustProxy?: boolean;
+  /** VoroniX.ai как третий ИИ в CRM VoroniX: вход для сервера CRM по ключу VORONIX_CRM_KEY. */
+  readonly crm?: { readonly bridge: CrmBridge; readonly key: string };
   /** Инструменты CRM для MCP (шаг 3). */
   readonly tools?: ToolRegistry;
   /** Пароль сотрудника (шаг 4). Без него вход выключен. */
@@ -238,6 +242,47 @@ export function createApp(deps: AppDeps): App {
     sendJson(res, 200, response);
   };
 
+  const crmAuth = async (req: IncomingMessage): Promise<{ bridge: CrmBridge; body: unknown }> => {
+    if (deps.crm === undefined) {
+      throw new HttpError(404, "not_found", "Подключение CRM не настроено: задайте VORONIX_CRM_KEY.");
+    }
+    const header = req.headers.authorization ?? "";
+    const given = header.startsWith("Bearer ") ? header.slice("Bearer ".length) : "";
+    if (!passwordMatches(given, deps.crm.key)) {
+      throw new HttpError(401, "bad_key", "Неверный ключ CRM.");
+    }
+    return { bridge: deps.crm.bridge, body: await readJson(req, CRM_LIMIT_BYTES) };
+  };
+
+  const crmStart: Handler = async (req, res) => {
+    const { bridge, body } = await crmAuth(req);
+    try {
+      sendJson(res, 200, await bridge.start(parseCrmTurn(body)));
+    } catch (error) {
+      if (error instanceof CrmInputError) {
+        throw new HttpError(400, "bad_input", error.message);
+      }
+      if (error instanceof CrmBusyError) {
+        throw new HttpError(503, "overloaded", error.message);
+      }
+      throw error;
+    }
+  };
+
+  const crmResult: Handler = async (req, res) => {
+    const { bridge, body } = await crmAuth(req);
+    const b = isObject(body) ? body : {};
+    const { turnId, callId, content, isError } = b;
+    if (typeof turnId !== "string" || typeof callId !== "string" || typeof content !== "string" || content.length > CRM_LIMIT_BYTES) {
+      throw new HttpError(400, "bad_input", "Нужны turnId, callId и content.");
+    }
+    const next = bridge.submit(turnId, callId, { content, isError: isError === true });
+    if (next === null) {
+      throw new HttpError(404, "not_found", "Ход не найден или уже закончен.");
+    }
+    sendJson(res, 200, await next);
+  };
+
   const json =
     (produce: () => unknown): Handler =>
     (_req, res) => {
@@ -256,6 +301,8 @@ export function createApp(deps: AppDeps): App {
     ["/api/login", { POST: login }],
     ["/api/logout", { POST: logout }],
     ["/mcp", { POST: staff(mcp) }],
+    ["/v1/crm/turns", { POST: crmStart }],
+    ["/v1/crm/turns/result", { POST: crmResult }],
     ["/console/api/overview", { GET: staff(json(() => deps.consoleInfo())) }],
     ["/console/api/turns", { GET: staff(json(() => ({ turns: deps.chat.log.list() }))) }],
   ]);

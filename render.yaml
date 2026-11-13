@@ -19,3 +19,6 @@ services:
         value: "1"
       - key: VORONIX_TRUST_PROXY
         value: "1"
+      # Ключ, по которому CRM VoroniX вызывает VoroniX.ai как третий ИИ. Тот же ключ кладётся в CRM в VORONIXAI_KEY.
+      - key: VORONIX_CRM_KEY
+        generateValue: true
