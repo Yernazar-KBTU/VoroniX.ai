@@ -1,4 +1,6 @@
-export const TURN_OUTCOMES = ["answered", "truncated", "refused", "cancelled", "failed"] as const;
+import type { Span } from "../trace/trace.ts";
+
+export const TURN_OUTCOMES = ["answered", "truncated", "refused", "cancelled", "failed", "blocked"] as const;
 export type TurnOutcome = (typeof TURN_OUTCOMES)[number];
 
 /** Метрики одного ответа: их видит клиент под ответом и сотрудник в консоли. */
@@ -11,6 +13,37 @@ export interface TurnMeta {
   readonly totalMs: number;
   readonly inputTokens: number | null;
   readonly outputTokens: number | null;
+  /** Ответ взят из кэша частых вопросов: модель не вызывалась (шаг 6). */
+  readonly cached?: boolean;
+  /** Куда роутер отправил вопрос и почему (шаг 6). */
+  readonly route?: RouteInfo | null;
+  /** Документы базы знаний, на которые опирался ответ (шаг 2). */
+  readonly sources?: readonly SourceRef[];
+  /** Вызовы инструментов CRM (шаг 3). */
+  readonly tools?: readonly { readonly name: string; readonly ok: boolean }[];
+  /** Что увидела защита (шаг 5). */
+  readonly guard?: GuardInfo | null;
+  readonly cacheReadTokens?: number | null;
+  readonly cacheWriteTokens?: number | null;
+}
+
+export interface SourceRef {
+  readonly id: string;
+  readonly title: string;
+}
+
+export interface RouteInfo {
+  readonly model: string;
+  readonly tier: "fast" | "main";
+  readonly reason: string;
+}
+
+export interface GuardInfo {
+  readonly injection: number;
+  readonly signals: readonly string[];
+  /** Сколько личных данных заменено метками до отправки модели. */
+  readonly pii: number;
+  readonly blocked: boolean;
 }
 
 /** Запись журнала консоли. Текст сообщений сюда не попадает: только длины и метрики. */
@@ -25,6 +58,10 @@ export interface TurnRecord extends TurnMeta {
   readonly outputChars: number;
   /** Подробности ошибки для сотрудника. Клиент видит общий текст. */
   readonly error: string | null;
+  /** Роль, от имени которой шёл диалог (шаг 4). */
+  readonly role?: string;
+  /** Трейс хода: шаги, время и атрибуты, без текста сообщений (шаг 7). */
+  readonly trace?: readonly Span[];
 }
 
 export interface TurnStats {

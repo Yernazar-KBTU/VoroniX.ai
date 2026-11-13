@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import type { Role } from "../auth/roles.ts";
 import { Conversation } from "../chat/conversation.ts";
 
 /** 24 случайных байта в base64url: 32 символа, угадать нельзя. */
@@ -11,6 +12,8 @@ export interface Session {
   readonly conversation: Conversation;
   readonly createdAt: number;
   lastSeen: number;
+  /** Роль в этой сессии: посетитель сайта или вошедший сотрудник (шаг 4). */
+  role: Role;
 }
 
 export interface SessionStoreOptions {
@@ -67,9 +70,24 @@ export class SessionStore {
       conversation: new Conversation(),
       createdAt: now,
       lastSeen: now,
+      role: "client",
     };
     this.#sessions.set(newId, session);
     return { session, created: true };
+  }
+
+  /**
+   * Вход сотрудника: всегда новая сессия с новым идентификатором (защита от фиксации сессии),
+   * старая удаляется вместе с её диалогом.
+   */
+  elevate(oldId: string | undefined, role: Role): Session {
+    const old = this.find(oldId);
+    if (old !== undefined && !old.conversation.busy) {
+      this.#sessions.delete(old.id);
+    }
+    const { session } = this.resolve(undefined);
+    session.role = role;
+    return session;
   }
 
   #touch(session: Session): void {

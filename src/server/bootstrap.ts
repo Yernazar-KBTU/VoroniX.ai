@@ -1,7 +1,11 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { loadAppConfig } from "../config/index.ts";
-import { WEB_DIR } from "../config/paths.ts";
+import { KNOWLEDGE_DIR, WEB_DIR } from "../config/paths.ts";
+import { ResponseCache } from "../cache/response-cache.ts";
+import { KnowledgeBase } from "../rag/knowledge.ts";
+import { FAST_MODEL } from "../router/router.ts";
+import { DemoCrm, ToolRegistry, crmTools } from "../tools/crm.ts";
 import { loadSystemPrompt } from "../prompt/system-prompt.ts";
 import { Assistant } from "../llm/assistant.ts";
 import { createClient } from "../llm/client.ts";
@@ -25,6 +29,9 @@ export interface RunningServer {
   readonly ready: boolean;
   readonly app: App;
   readonly chat: ChatService;
+  readonly crm: DemoCrm;
+  readonly knowledge: KnowledgeBase;
+  readonly cache: ResponseCache;
   close(): Promise<void>;
 }
 
@@ -47,12 +54,25 @@ export async function startServer(options: StartOptions): Promise<RunningServer>
   const ready = hasApiCredentials(env);
   const engine: ChatEngine = ready ? new Assistant(createClient(), config.assistant, system) : missingKeyEngine;
   const limits = config.server;
+  const knowledge = KnowledgeBase.load(KNOWLEDGE_DIR);
+  const crm = new DemoCrm();
+  const tools = new ToolRegistry(crmTools(crm));
+  const cache = new ResponseCache({ ttlMs: 60 * 60_000, maxEntries: 500 });
+  const password = env["VORONIX_MANAGER_PASSWORD"]?.trim() ?? "";
   const chat = new ChatService(engine, {
     model: config.assistant.model,
     maxInputChars: limits.maxInputChars,
     maxHistoryMessages: limits.maxHistoryMessages,
     maxConcurrent: limits.maxConcurrentReplies,
     log: new TurnLog(limits.turnLogSize),
+    layers: {
+      knowledge,
+      tools,
+      cache,
+      fastModel: FAST_MODEL,
+      guard: true,
+      version: `${system.fingerprint}:${knowledge.version}`,
+    },
   });
   const sessions = new SessionStore({ ttlMs: limits.sessionTtlMinutes * 60_000, maxSessions: limits.maxSessions });
   const startedAt = Date.now();
@@ -66,6 +86,9 @@ export async function startServer(options: StartOptions): Promise<RunningServer>
     ready,
     secureCookies: env["VORONIX_COOKIE_SECURE"] === "1",
     sessionTtlSec: limits.sessionTtlMinutes * 60,
+    tools,
+    loginLimiter: new RateLimiter({ limit: 5, windowMs: 10 * 60_000 }),
+    ...(password.length >= 8 ? { managerPassword: password } : {}),
   });
   const server = createServer(app.handle);
   await new Promise<void>((resolve, reject) => {
@@ -76,7 +99,16 @@ export async function startServer(options: StartOptions): Promise<RunningServer>
     });
   });
   const { port } = server.address() as AddressInfo;
-  return { url: `http://${displayHost(options.host)}:${port}`, ready, app, chat, close: () => stop(server, app) };
+  return {
+    url: `http://${displayHost(options.host)}:${port}`,
+    ready,
+    app,
+    chat,
+    crm,
+    knowledge,
+    cache,
+    close: () => stop(server, app),
+  };
 }
 
 function displayHost(host: string): string {

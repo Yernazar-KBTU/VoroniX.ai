@@ -1213,3 +1213,68 @@ a {
     transform: translateY(-4px);
   }
 }
+
+/* ---------- слои со 2 по 7 ---------- */
+.meta .c-rag,
+.meta .c-tool,
+.meta .c-guard,
+.meta .c-cache {
+  border-color: color-mix(in srgb, currentColor 35%, transparent);
+}
+
+.meta .c-rag { color: var(--l2); }
+.meta .c-tool { color: var(--l3); }
+.meta .c-guard { color: var(--l5); }
+.meta .c-cache { color: var(--l6); }
+
+.badge.blocked { color: var(--l5); }
+
+td.wrap {
+  min-width: 190px;
+  max-width: 320px;
+  white-space: normal;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--mut);
+}
+
+td.small { font-size: 11px; }
+
+.login {
+  max-width: 520px;
+  margin: 0 auto 24px;
+  padding: 22px;
+}
+
+.login h2 {
+  margin: 0 0 6px;
+  font: 700 18px/1.3 var(--font-display);
+}
+
+.login .muted {
+  margin: 0 0 14px;
+  color: var(--mut);
+  font-size: 13.5px;
+}
+
+.login-row {
+  display: flex;
+  gap: 10px;
+}
+
+.login-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+}
+
+.login-error {
+  margin: 10px 0 0;
+  color: var(--bad);
+  font-size: 13px;
+}

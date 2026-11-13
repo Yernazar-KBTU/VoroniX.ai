@@ -9,7 +9,7 @@ const prompt = loadSystemPrompt(config);
 
 describe("system prompt v1", () => {
   it("собирается без пустых переменных", () => {
-    assert.equal(prompt.version, "v1");
+    assert.equal(prompt.version, "v2");
     assert.equal(prompt.id, "voronix-assistant");
     assert.doesNotMatch(prompt.text, /\{\{|\}\}/);
   });

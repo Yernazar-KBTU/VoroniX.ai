@@ -50,7 +50,7 @@ describe("assistant config", () => {
     const config = parseAssistantConfig(assistantJson, {});
     assert.equal(config.model, "claude-opus-5-5");
     assert.equal(config.effort, "medium");
-    assert.equal(config.promptVersion, "v1");
+    assert.equal(config.promptVersion, "v2");
   });
 
   it("модель и усилие можно переопределить через окружение", () => {

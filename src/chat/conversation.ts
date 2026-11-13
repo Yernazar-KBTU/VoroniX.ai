@@ -1,3 +1,4 @@
+import { PiiVault } from "../guard/pii.ts";
 import type { ChatMessage } from "../llm/request.ts";
 import type { TurnMeta } from "./turn-log.ts";
 
@@ -18,6 +19,8 @@ export class Conversation {
   #history: readonly ChatMessage[] = [];
   readonly #transcript: TranscriptEntry[] = [];
   #busy = false;
+  /** Метки личных данных этого диалога (шаг 5): живут столько же, сколько диалог. */
+  readonly vault = new PiiVault();
 
   get history(): readonly ChatMessage[] {
     return this.#history;
@@ -59,6 +62,7 @@ export class Conversation {
     }
     this.#history = [];
     this.#transcript.length = 0;
+    this.vault.clear();
     return true;
   }
 }

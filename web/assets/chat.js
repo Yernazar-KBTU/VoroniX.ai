@@ -18,6 +18,12 @@
     refused: "Ассистент не может ответить на этот запрос. Попробуйте спросить иначе.",
     truncated: "Ответ получился слишком длинным и обрезан.",
     cancelled: "Остановлено. Этот ответ не сохранён в диалоге.",
+    blocked: "Сработала защита: сообщение похоже на попытку изменить правила ассистента, поэтому в модель оно не ушло.",
+  };
+  const TOOL_LABELS = {
+    list_demo_slots: "проверил свободное время",
+    book_demo: "записал на демо",
+    list_leads: "открыл заявки",
   };
 
   const state = { busy: false, ready: false, maxChars: 4000, controller: null };
@@ -149,6 +155,14 @@
     };
     if (meta.servedBy) chip(meta.servedBy, "Модель, которая написала ответ", "m-model");
     if (meta.fallbackUsed) chip("запасная модель", "Основная модель отказалась, ответ продолжила запасная", "flag");
+    if (meta.cached) chip("из кэша", "Частый вопрос: ответ взят из кэша, модель не вызывалась", "c-cache");
+    if (meta.route && meta.route.tier === "fast") chip("быстрая модель", "Роутер: " + meta.route.reason, "c-cache");
+    if (meta.guard && meta.guard.blocked) chip("защита", "Сообщение остановлено до модели", "c-guard");
+    if (meta.guard && meta.guard.pii) chip("скрыто данных: " + meta.guard.pii, "Личные данные заменены метками до отправки модели", "c-guard");
+    for (const tool of meta.tools || []) {
+      chip((tool.ok ? "✓ " : "✗ ") + (TOOL_LABELS[tool.name] || tool.name), "Действие в CRM через инструмент " + tool.name, "c-tool");
+    }
+    for (const source of meta.sources || []) chip("источник: " + source.title, "Раздел базы знаний " + source.id, "c-rag");
     if (meta.firstTextMs != null) chip("первое слово " + seconds(meta.firstTextMs), "От отправки вопроса до первого слова ответа");
     if (meta.totalMs != null) chip("ответ " + seconds(meta.totalMs), "Полное время ответа");
     if (meta.inputTokens != null && meta.outputTokens != null) {

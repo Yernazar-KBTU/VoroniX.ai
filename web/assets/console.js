@@ -5,7 +5,7 @@
   const $ = (id) => document.getElementById(id);
   const root = document.documentElement;
   const numbers = new Intl.NumberFormat("ru-RU");
-  const OUTCOME = { answered: "ответ", truncated: "обрезан", refused: "отказ", cancelled: "остановлен", failed: "ошибка" };
+  const OUTCOME = { answered: "ответ", truncated: "обрезан", refused: "отказ", cancelled: "остановлен", failed: "ошибка", blocked: "заблокирован" };
   const seconds = (ms) => (ms == null ? "нет" : (ms / 1000).toFixed(1).replace(".", ",") + " с");
   const clock = (iso) => new Date(iso).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   let promptText = "";
@@ -14,8 +14,30 @@
   async function getJson(url) {
     const response = await fetch(url, { cache: "no-store" });
     const data = await response.json().catch(() => null);
-    if (!response.ok) throw new Error((data && data.error && data.error.message) || "Ошибка " + response.status);
+    if (!response.ok) {
+      const error = new Error((data && data.error && data.error.message) || "Ошибка " + response.status);
+      error.status = response.status;
+      throw error;
+    }
     return data;
+  }
+
+  function layersText(turn) {
+    const parts = [];
+    if (turn.role === "manager") parts.push("роль: менеджер");
+    if (turn.guard && turn.guard.blocked) parts.push("защита: остановлено до модели");
+    else if (turn.guard && turn.guard.pii) parts.push("скрыто данных: " + turn.guard.pii);
+    if (turn.cached) parts.push("кэш ответов");
+    if (turn.route) parts.push((turn.route.tier === "fast" ? "быстрая модель" : "основная модель") + " (" + turn.route.reason + ")");
+    if (turn.sources && turn.sources.length) parts.push("RAG: " + turn.sources.map((s) => s.title).join(", "));
+    if (turn.tools && turn.tools.length) parts.push("инструменты: " + turn.tools.map((t) => t.name + (t.ok ? "" : " (ошибка)")).join(", "));
+    if (turn.cacheReadTokens) parts.push("кэш промпта: " + numbers.format(turn.cacheReadTokens) + " ток.");
+    return parts.join(" · ") || "нет";
+  }
+
+  function traceText(turn) {
+    const spans = turn.trace || [];
+    return spans.map((span) => span.name + " " + (span.ms >= 1000 ? seconds(span.ms) : span.ms + " мс")).join(" → ") || "нет";
   }
 
   function uptime(total) {
@@ -129,6 +151,8 @@
       cell(row, seconds(turn.firstTextMs), "num");
       cell(row, seconds(turn.totalMs), "num");
       cell(row, turn.inputTokens == null ? "нет" : numbers.format(turn.inputTokens) + " → " + numbers.format(turn.outputTokens), "num");
+      cell(row, layersText(turn), "wrap");
+      cell(row, traceText(turn), "wrap mono small");
       const last = cell(row, "", turn.error ? "err" : "");
       if (turn.error) {
         last.textContent = turn.error;
@@ -165,10 +189,33 @@
       $("banner").hidden = true;
       $("updated").textContent = clock(new Date().toISOString());
     } catch (error) {
+      if (error.status === 403) {
+        $("login").hidden = false;
+        $("banner").hidden = true;
+        return;
+      }
       $("banner").textContent = "Не удалось обновить данные: " + error.message;
       $("banner").hidden = false;
     }
   }
+
+  $("login").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const response = await fetch("/api/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ password: $("password").value }),
+    });
+    const data = await response.json().catch(() => null);
+    if (response.ok) {
+      $("login").hidden = true;
+      $("password").value = "";
+      refresh();
+      return;
+    }
+    $("login-error").textContent = (data && data.error && data.error.message) || "Не получилось войти.";
+    $("login-error").hidden = false;
+  });
 
   $("copy-prompt").addEventListener("click", (event) => copy(promptText, event.currentTarget));
   $("toggle-theme").addEventListener("click", () => {
