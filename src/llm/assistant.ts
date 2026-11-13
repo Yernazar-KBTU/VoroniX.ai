@@ -20,7 +20,13 @@ export interface ReplyHandlers {
 /** Инструменты для одного хода: определения для модели и запуск по имени. */
 export interface ToolRunner {
   readonly definitions: readonly ToolDefinition[];
-  execute(name: string, input: unknown): { readonly content: string; readonly isError: boolean };
+  /** Инструмент может выполняться и на другом сервере (CRM), поэтому ответ может прийти обещанием. */
+  execute(name: string, input: unknown): ToolResult | Promise<ToolResult>;
+}
+
+export interface ToolResult {
+  readonly content: string;
+  readonly isError: boolean;
 }
 
 export interface ReplyOptions {
@@ -31,6 +37,8 @@ export interface ReplyOptions {
   /** Быстрый режим для простых вопросов: без размышлений и с низким усилием. */
   readonly fast?: boolean;
   readonly tools?: ToolRunner;
+  /** Сколько кругов инструментов разрешено, по умолчанию MAX_TOOL_ROUNDS. */
+  readonly maxToolRounds?: number;
 }
 
 export interface ReplyTiming {
@@ -127,14 +135,15 @@ export class Assistant {
     const texts: string[] = [];
     const tools = options.tools;
 
-    for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
+    const maxRounds = options.maxToolRounds ?? MAX_TOOL_ROUNDS;
+    for (let round = 0; round <= maxRounds; round += 1) {
       const callStart = since();
       const request = buildRequest(this.#config, this.#system, [...history, ...appended], {
         ...(options.model === undefined ? {} : { model: options.model }),
         fast: options.fast === true,
         cache: this.#system !== null,
         tools: tools?.definitions ?? [],
-        finalRound: round === MAX_TOOL_ROUNDS,
+        finalRound: round === maxRounds,
       });
       const stream = this.#client.beta.messages.stream(request, { signal: options.signal ?? null });
       let roundText = false;
@@ -182,7 +191,7 @@ export class Assistant {
       const results: ToolResultBlock[] = [];
       for (const use of uses) {
         const toolStart = performance.now();
-        const result = tools.execute(use.name, use.input);
+        const result = await tools.execute(use.name, use.input);
         toolCalls.push({ name: use.name, ok: !result.isError, ms: Math.round(performance.now() - toolStart) });
         handlers.onTool?.(use.name, !result.isError);
         results.push({ type: "tool_result", tool_use_id: use.id, content: result.content, ...(result.isError ? { is_error: true } : {}) });

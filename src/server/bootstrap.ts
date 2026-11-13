@@ -11,6 +11,7 @@ import { Assistant } from "../llm/assistant.ts";
 import { createClient } from "../llm/client.ts";
 import { ChatService, type ChatEngine } from "../chat/service.ts";
 import { TurnLog } from "../chat/turn-log.ts";
+import { CrmBridge } from "../crm/bridge.ts";
 import { createApp, type App } from "./app.ts";
 import { buildConsoleOverview, buildPublicInfo } from "./info.ts";
 import { RateLimiter } from "./rate-limit.ts";
@@ -74,6 +75,24 @@ export async function startServer(options: StartOptions): Promise<RunningServer>
       version: `${system.fingerprint}:${knowledge.version}`,
     },
   });
+  const crmKey = env["VORONIX_CRM_KEY"]?.trim() ?? "";
+  const client = ready ? createClient() : null;
+  const crmLink =
+    client !== null && crmKey.length >= 16
+      ? {
+          key: crmKey,
+          bridge: new CrmBridge({
+            makeEngine: (prompt) => new Assistant(client, config.assistant, prompt),
+            log: chat.log,
+            mainModel: config.assistant.model,
+            fastModel: FAST_MODEL,
+          }),
+        }
+      : undefined;
+  const sweeper = crmLink === undefined ? null : setInterval(() => {
+          crmLink.bridge.sweep();
+        }, 60_000);
+  sweeper?.unref();
   const sessions = new SessionStore({ ttlMs: limits.sessionTtlMinutes * 60_000, maxSessions: limits.maxSessions });
   const startedAt = Date.now();
   const app = createApp({
@@ -86,6 +105,7 @@ export async function startServer(options: StartOptions): Promise<RunningServer>
     ready,
     secureCookies: env["VORONIX_COOKIE_SECURE"] === "1",
     trustProxy: env["VORONIX_TRUST_PROXY"] === "1",
+    ...(crmLink === undefined ? {} : { crm: crmLink }),
     sessionTtlSec: limits.sessionTtlMinutes * 60,
     tools,
     loginLimiter: new RateLimiter({ limit: 5, windowMs: 10 * 60_000 }),
