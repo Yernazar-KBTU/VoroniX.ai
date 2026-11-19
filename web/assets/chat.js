@@ -1,4 +1,4 @@
-/* VoroniX.ai: чат клиента. Без сторонних библиотек: политика безопасности разрешает только свои скрипты. */
+/* VoroniX.ai: client chat. No third-party libraries: the security policy allows only our own scripts. */
 (() => {
   "use strict";
 
@@ -6,29 +6,28 @@
   const root = document.documentElement;
   const app = $("app");
   const log = $("log");
-  const hero = $("hero");
   const form = $("composer");
   const input = $("input");
   const sendButton = $("send");
   const counter = $("count");
   const banner = $("banner");
-  const numbers = new Intl.NumberFormat("ru-RU");
+  const numbers = new Intl.NumberFormat("en-US");
 
   const NOTICES = {
-    refused: "Ассистент не может ответить на этот запрос. Попробуйте спросить иначе.",
-    truncated: "Ответ получился слишком длинным и обрезан.",
-    cancelled: "Остановлено. Этот ответ не сохранён в диалоге.",
-    blocked: "Сработала защита: сообщение похоже на попытку изменить правила ассистента, поэтому в модель оно не ушло.",
+    refused: "The assistant cannot answer this request. Try asking another way.",
+    truncated: "The answer was too long and was cut off.",
+    cancelled: "Stopped. This answer was not saved in the conversation.",
+    blocked: "The guard stopped this message: it looks like an attempt to change the assistant's rules, so it never reached the model.",
   };
   const TOOL_LABELS = {
-    list_demo_slots: "проверил свободное время",
-    book_demo: "записал на демо",
-    list_leads: "открыл заявки",
+    list_demo_slots: "checked free slots",
+    book_demo: "booked a demo",
+    list_leads: "opened leads",
   };
 
   const state = { busy: false, ready: false, maxChars: 4000, controller: null };
 
-  const seconds = (ms) => (ms / 1000).toFixed(1).replace(".", ",") + " с";
+  const seconds = (ms) => (ms / 1000).toFixed(1) + " s";
   const escapeHtml = (value) =>
     String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
@@ -95,7 +94,7 @@
   };
 
   function userMessage(text) {
-    hero.hidden = true;
+    app.classList.add("has-chat");
     const article = document.createElement("article");
     article.className = "msg user";
     const bubble = document.createElement("div");
@@ -110,7 +109,7 @@
   function botShell() {
     const article = document.createElement("article");
     article.className = "msg bot";
-    article.innerHTML = '<span class="avatar"><img src="/assets/logo.svg" width="34" height="34" alt=""></span><div class="body"></div>';
+    article.innerHTML = '<span class="avatar" aria-hidden="true"><span class="orb-ball"><span class="orb-swirl"></span><span class="orb-shade"></span></span></span><div class="body"></div>';
     log.append(article);
     return { article, body: article.querySelector(".body") };
   }
@@ -153,27 +152,24 @@
       span.title = title;
       row.append(span);
     };
-    if (meta.servedBy) chip(meta.servedBy, "Модель, которая написала ответ", "m-model");
-    if (meta.fallbackUsed) chip("запасная модель", "Основная модель отказалась, ответ продолжила запасная", "flag");
-    if (meta.cached) chip("из кэша", "Частый вопрос: ответ взят из кэша, модель не вызывалась", "c-cache");
-    if (meta.route && meta.route.tier === "fast") chip("быстрая модель", "Роутер: " + meta.route.reason, "c-cache");
-    if (meta.guard && meta.guard.blocked) chip("защита", "Сообщение остановлено до модели", "c-guard");
-    if (meta.guard && meta.guard.pii) chip("скрыто данных: " + meta.guard.pii, "Личные данные заменены метками до отправки модели", "c-guard");
-    for (const tool of meta.tools || []) {
-      chip((tool.ok ? "✓ " : "✗ ") + (TOOL_LABELS[tool.name] || tool.name), "Действие в CRM через инструмент " + tool.name, "c-tool");
-    }
-    for (const source of meta.sources || []) chip("источник: " + source.title, "Раздел базы знаний " + source.id, "c-rag");
-    if (meta.firstTextMs != null) chip("первое слово " + seconds(meta.firstTextMs), "От отправки вопроса до первого слова ответа");
-    if (meta.totalMs != null) chip("ответ " + seconds(meta.totalMs), "Полное время ответа");
+    if (meta.guard && meta.guard.blocked) chip("Guard: blocked", "Stopped before the model", "t-guard");
+    else if (meta.guard && meta.guard.pii) chip("Guard: " + meta.guard.pii + " masked", "Personal data replaced with labels before the model", "t-guard");
+    else if (meta.guard) chip("Guard: clean", "No injection signals", "t-guard");
+    if (meta.cached) chip("Cache: hit" + (meta.cacheMatch && meta.cacheMatch.kind === "semantic" ? ", same meaning " + meta.cacheMatch.similarity.toFixed(2) : ""), "Answer reused from cache, the model was not called", "t-cache");
+    for (const source of meta.sources || []) chip("Source: " + source.title, "Knowledge article " + source.id, "t-search");
+    if (meta.route) chip("Router: " + (meta.route.tier === "fast" ? "fast model" : "smart model"), meta.route.reason, "t-router");
+    if (meta.servedBy) chip("Model: " + meta.servedBy + (meta.totalMs != null ? ", " + seconds(meta.totalMs) : ""), "Model that wrote the answer and total time", "t-model");
+    if (meta.fallbackUsed) chip("Fallback model", "The main model refused, the fallback continued", "t-flag");
+    for (const tool of meta.tools || []) chip("Tools: " + (TOOL_LABELS[tool.name] || tool.name) + (tool.ok ? "" : " (failed)"), "CRM action via tool " + tool.name, "t-tools");
     if (meta.inputTokens != null && meta.outputTokens != null) {
-      chip("токены " + numbers.format(meta.inputTokens) + " → " + numbers.format(meta.outputTokens), "Токены на входе и на выходе, включая размышления модели");
+      chip(numbers.format(meta.inputTokens) + " in, " + numbers.format(meta.outputTokens) + " out", "Input and output tokens");
     }
-    if (meta.outcome === "truncated") chip("обрезан", "Ответ упёрся в лимит длины", "flag");
+    if (meta.outcome === "truncated") chip("Cut off", "The answer hit the length limit", "t-flag");
     if (meta.requestId) {
       const button = document.createElement("button");
       button.type = "button";
       button.textContent = "id " + meta.requestId.slice(0, 12) + "…";
-      button.title = "ID запроса у Anthropic: " + meta.requestId + ". Нажмите, чтобы скопировать";
+      button.title = "Anthropic request id " + meta.requestId + ". Click to copy";
       button.addEventListener("click", () => copyText(meta.requestId, button));
       row.append(button);
     }
@@ -185,7 +181,7 @@
     article.classList.add("pending");
     const thinking = document.createElement("div");
     thinking.className = "thinking";
-    thinking.innerHTML = '<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="t-label">Думает</span><span class="elapsed">0,0 с</span>';
+    thinking.innerHTML = '<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="t-label">Thinking</span><span class="elapsed">0.0 s</span>';
     body.append(thinking);
     scrollDown(true);
     const started = performance.now();
@@ -212,7 +208,7 @@
     return {
       article,
       fallback() {
-        label.textContent = "Думает запасная модель";
+        label.textContent = "Fallback model is thinking";
       },
       delta(chunk) {
         if (!bubble) {
@@ -247,8 +243,8 @@
         if (retry) {
           const button = document.createElement("button");
           button.type = "button";
-          button.className = "chip-btn";
-          button.textContent = "Повторить";
+          
+          button.textContent = "Retry";
           button.addEventListener("click", retry);
           card.append(button);
         }
@@ -288,7 +284,7 @@
     const text = raw.trim();
     if (!text || state.busy || !state.ready) return;
     if (text.length > state.maxChars) {
-      showBanner("Сообщение длиннее " + numbers.format(state.maxChars) + " символов. Сократите его, пожалуйста.");
+      showBanner("The message is longer than " + numbers.format(state.maxChars) + " characters. Please shorten it.");
       return;
     }
     const userArticle = userMessage(text);
@@ -315,7 +311,7 @@
       const type = response.headers.get("content-type") || "";
       if (!response.ok || !type.includes("text/event-stream")) {
         const payload = await response.json().catch(() => null);
-        const message = (payload && payload.error && payload.error.message) || "Сервер не ответил. Попробуйте ещё раз.";
+        const message = (payload && payload.error && payload.error.message) || "The server did not answer. Please try again.";
         settled = true;
         if (response.status === 400 || response.status === 413) {
           view.fail(message, null);
@@ -338,11 +334,11 @@
           view.fail(data.message, retry);
         }
       });
-      if (!settled) view.fail("Соединение прервалось до конца ответа. Попробуйте ещё раз.", retry);
+      if (!settled) view.fail("The connection dropped before the answer finished. Please try again.", retry);
     } catch (_) {
       if (settled) return;
       if (controller.signal.aborted) view.finish(null, NOTICES.cancelled);
-      else view.fail("Нет связи с сервером. Проверьте подключение и повторите.", retry);
+      else view.fail("No connection to the server. Check your network and try again.", retry);
     } finally {
       state.controller = null;
       setBusy(false);
@@ -352,7 +348,7 @@
   function setBusy(on) {
     state.busy = on;
     app.classList.toggle("busy", on);
-    const label = on ? "Остановить ответ" : "Отправить";
+    const label = on ? "Stop the answer" : "Send";
     sendButton.setAttribute("aria-label", label);
     sendButton.title = label;
     updateSendState();
@@ -380,45 +376,25 @@
   }
 
   /* ---------- сведения о помощнике и история ---------- */
-  function renderLayers(target, layers) {
-    target.textContent = "";
-    for (const layer of layers) {
-      const on = layer.status === "active";
-      const item = document.createElement("li");
-      item.className = "layer c" + layer.step + (on ? " on" : "");
-      item.title = on ? "Слой работает в каждом ответе" : "Появится на шаге " + layer.step;
-      item.innerHTML =
-        '<span class="num">' + layer.step + '</span><span class="lname">' + escapeHtml(layer.name) +
-        "<small>закрывает: " + escapeHtml(layer.fixes.toLowerCase()) + '</small></span><span class="state">' +
-        (on ? "работает" : "шаг " + layer.step) + "</span>";
-      target.append(item);
-    }
-  }
-
-  function setStatus(kind, text) {
-    $("status-dot").className = "status-dot " + kind;
-    $("status-text").textContent = text;
-    $("status-langs").hidden = kind !== "ok";
+  function setStatus(kind) {
+    $("status-dot").className = "dot " + kind;
   }
 
   async function loadInfo() {
     try {
       const info = await (await fetch("/api/info", { cache: "no-store" })).json();
-      renderLayers($("layers"), info.layers);
       $("f-model").textContent = info.assistant.model;
-      $("f-effort").textContent = info.assistant.effort;
-      $("f-prompt").textContent = info.prompt.version + " · " + info.prompt.fingerprint;
       state.maxChars = info.limits.maxInputChars;
       input.maxLength = state.maxChars;
       state.ready = info.ready;
       if (info.ready) {
-        setStatus("ok", "на связи");
+        setStatus("ok");
       } else {
-        setStatus("bad", "не подключён к модели");
-        showBanner("Сервер запущен без ключа API Anthropic, поэтому ответы пока недоступны. Добавьте ANTHROPIC_API_KEY в файл .env и перезапустите сервер.");
+        setStatus("bad");
+        showBanner("The server runs without an Anthropic API key, so answers are not available yet. Add ANTHROPIC_API_KEY and restart the server.");
       }
     } catch (_) {
-      setStatus("bad", "нет связи с сервером");
+      setStatus("bad"); $("f-model").textContent = "offline";
     }
     updateSendState();
   }
@@ -462,7 +438,7 @@
       /* сервер недоступен: всё равно очищаем окно */
     }
     for (const node of log.querySelectorAll(".msg")) node.remove();
-    hero.hidden = false;
+    app.classList.remove("has-chat");
     if (state.ready) banner.hidden = true;
     input.focus();
   }
@@ -471,11 +447,6 @@
   function applyDetails(on) {
     root.classList.toggle("details-off", !on);
     $("toggle-details").setAttribute("aria-pressed", String(on));
-  }
-
-  function openSide(open) {
-    app.classList.toggle("side-open", open);
-    $("scrim").hidden = !open;
   }
 
   /* ---------- события ---------- */
@@ -500,26 +471,39 @@
     updateCount();
   });
   for (const button of document.querySelectorAll(".sugg")) {
-    button.addEventListener("click", () => send(button.textContent));
+    button.addEventListener("click", () => send(button.dataset.q || button.textContent));
   }
   $("new-chat").addEventListener("click", newChat);
-  $("toggle-theme").addEventListener("click", () => {
-    const next = root.getAttribute("data-theme") === "light" ? "dark" : "light";
-    root.setAttribute("data-theme", next);
-    remember("vx-theme", next);
-  });
+  $("new-chat-m").addEventListener("click", newChat);
   $("toggle-details").addEventListener("click", () => {
     const on = root.classList.contains("details-off");
     applyDetails(on);
     remember("vx-details", on ? "on" : "off");
   });
-  $("open-side").addEventListener("click", () => openSide(true));
-  $("close-side").addEventListener("click", () => openSide(false));
-  $("scrim").addEventListener("click", () => openSide(false));
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") openSide(false);
+  $("export-chat").addEventListener("click", () => {
+    const lines = [];
+    for (const node of log.querySelectorAll(".msg")) {
+      const who = node.classList.contains("user") ? "You" : "VoroniX Agent";
+      const bubble = node.querySelector(".bubble");
+      if (bubble) lines.push(who + ":\n" + bubble.innerText.trim() + "\n");
+    }
+    if (!lines.length) {
+      showBanner("Nothing to export yet. Ask a question first.");
+      return;
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "voronix-chat.txt";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
   });
 
+  try {
+    if (localStorage.getItem("vx-details") === "off") root.classList.add("details-off");
+  } catch (_) {
+    /* storage unavailable */
+  }
   applyDetails(!root.classList.contains("details-off"));
   updateCount();
   loadInfo();

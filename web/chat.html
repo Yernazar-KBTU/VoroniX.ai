@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>VoroniX Agent · Chat</title>
+  <meta name="description" content="Ask the VoroniX.ai agent about VoroniX CRM.">
+  <meta name="author" content="Altynbekov Yernazar">
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+<div class="cx" id="app">
+  <aside class="cx-side" aria-label="Navigation">
+    <div class="cx-side-top">
+      <a class="logo" href="/"><span class="logo-mark"><svg width="18" height="18" viewBox="0 0 26 26" aria-hidden="true"><circle cx="15" cy="13" r="8" fill="none" stroke="#fff" stroke-width="2.6"/><circle cx="3.5" cy="13" r="2.2" fill="#fff"/></svg></span>VoroniX.ai</a>
+    </div>
+    <button class="cx-new" type="button" id="new-chat"><svg class="ico" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="7"/><path d="M9 6v6M6 9h6"/></svg>New Chat</button>
+
+    <div class="cx-label">Features</div>
+    <a class="cx-item on" href="/chat" aria-current="page"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z"/></svg>Chat</a>
+    <a class="cx-item" href="/#layers"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2 2 5l6 3 6-3-6-3z M2 8l6 3 6-3 M2 11l6 3 6-3"/></svg>How it works</a>
+    <a class="cx-item" href="/console"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h2.5l2-4 3 8 2-4H14"/></svg>Activity log</a>
+    <div class="cx-div"></div>
+    <div class="cx-label">Popular questions</div>
+    <button class="cx-item sugg" type="button"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4.5h4l1.5 1.5H14v6.5H2z"/></svg>What can VoroniX do?</button>
+    <button class="cx-item sugg" type="button"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4.5h4l1.5 1.5H14v6.5H2z"/></svg>Is it good for a barbershop?</button>
+    <button class="cx-item sugg" type="button"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4.5h4l1.5 1.5H14v6.5H2z"/></svg>How much does VoroniX cost?</button>
+    <button class="cx-item sugg" type="button"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4.5h4l1.5 1.5H14v6.5H2z"/></svg>VoroniX қазақша жауап бере ме?</button>
+
+    <div class="cx-card">
+      <span class="cx-card-ico"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2 13 4v4c0 3-2.2 5-5 6-2.8-1-5-3-5-6V4z"/></svg></span>
+      <b>Staff console</b>
+      <span>See every answer, blocked attack and export the moment it happens.</span>
+      <a href="/login">Sign in</a>
+    </div>
+  </aside>
+
+  <main class="cx-main">
+    <header class="cx-top">
+      <span class="pill"><span class="dot" id="status-dot"></span>VoroniX Agent<span class="cx-model hide-sm" id="f-model">connecting</span></span>
+      <div class="cx-actions">
+        <button class="pill" type="button" id="toggle-details" aria-pressed="true"><span class="hide-sm">Details</span><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.8M8 12.4v1.8M1.8 8h1.8M12.4 8h1.8M3.6 3.6l1.3 1.3M11.1 11.1l1.3 1.3M3.6 12.4l1.3-1.3M11.1 4.9l1.3-1.3"/></svg></button>
+        <button class="pill" type="button" id="export-chat"><span class="hide-sm">Export</span><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10V2.5M5 5.5l3-3 3 3M3 9.5v3.5h10V9.5"/></svg></button>
+        <button class="pill only-mobile" type="button" id="new-chat-m" aria-label="New chat"><svg class="ico" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 4v10M4 9h10"/></svg></button>
+      </div>
+    </header>
+
+    <div class="banner" id="banner" role="status" hidden></div>
+
+    <section class="cx-log" id="log" aria-live="polite" aria-label="Conversation">
+      <div class="cx-hero" id="hero">
+        <div class="orb" aria-hidden="true"><div class="orb-halo"></div><div class="orb-ball"><div class="orb-swirl"></div><div class="orb-swirl2"></div><div class="orb-shade"></div><div class="orb-spec"></div></div></div>
+        <h1>How Can VoroniX Help Today?</h1>
+        <p>Ask in English, Russian or Kazakh. Answers come from the VoroniX knowledge base.</p>
+      </div>
+    </section>
+
+    <div class="cx-bottom">
+      <div class="cx-col">
+        <div class="chips">
+          <button class="chip sugg" type="button" data-q="I would like to book a demo with the VoroniX team.">Book a demo<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h10v9H3z M3 7h10 M6 2.5v3 M10 2.5v3"/></svg></button>
+          <button class="chip sugg" type="button" data-q="We keep our clients in Excel. Can we import them into VoroniX?">Import my data<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5h10v11H3z M3 6h10 M3 9.5h10 M7 2.5v11"/></svg></button>
+          <button class="chip sugg" type="button" data-q="Do you integrate with Telegram?">Connect Telegram<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8.5 13.5 3l-2 10-3.5-3-2 2.5V9.5l5-4.5"/></svg></button>
+        </div>
+        <form class="composer" id="composer" autocomplete="off">
+          <div class="composer-in">
+            <svg class="spark" viewBox="0 0 22 22" aria-hidden="true"><path d="M11 1.5c.6 4.6 2.9 6.9 7.5 7.5-4.6.6-6.9 2.9-7.5 7.5-.6-4.6-2.9-6.9-7.5-7.5 4.6-.6 6.9-2.9 7.5-7.5z"/></svg>
+            <label class="sr" for="input">Message</label>
+            <textarea id="input" rows="1" maxlength="4000" placeholder="Ask anything about VoroniX..."></textarea>
+          </div>
+          <div class="composer-foot">
+            <span class="cf-item"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.6"/><path d="M2.4 8h11.2M8 2.4c2 2 2 9.2 0 11.2M8 2.4c-2 2-2 9.2 0 11.2"/></svg>EN · RU · KZ</span>
+            <span class="cf-item opt"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5h7l3 3v8H3z M10 2.5v3h3"/></svg>Knowledge base</span>
+            <span class="cf-item opt"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2 13 4v4c0 3-2.2 5-5 6-2.8-1-5-3-5-6V4z"/></svg>PII masked</span>
+            <span class="count" id="count"></span>
+            <button class="send" id="send" type="submit" aria-label="Send">
+              <svg class="ico i-send" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13V3.5M4 7.5l4-4 4 4"/></svg>
+              <svg class="ico i-stop" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1.5"/></svg>
+            </button>
+          </div>
+        </form>
+        <div class="cards">
+          <button class="card sugg" type="button" data-q="I would like to book a demo with the VoroniX team."><span class="card-top"><span class="card-ico"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h10v9H3z M3 7h10 M6 2.5v3 M10 2.5v3"/></svg></span><span class="card-tag">Book demo</span></span><b>Demo Booking</b><span class="txt">Pick a free slot with the VoroniX team, booked right from the chat.</span></button>
+          <button class="card sugg" type="button" data-q="Which files can I import into VoroniX?"><span class="card-top"><span class="card-ico"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v7.5 M5 7l3 3 3-3 M3 12.5h10"/></svg></span><span class="card-tag">Import</span></span><b>Data Import</b><span class="txt">Bring clients over from Excel, CSV or Word without retyping a thing.</span></button>
+          <button class="card sugg" type="button" data-q="How does VoroniX handle client messages?"><span class="card-top"><span class="card-ico"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8.5 13.5 3l-2 10-3.5-3-2 2.5V9.5l5-4.5"/></svg></span><span class="card-tag">Inbox</span></span><b>Client Messages</b><span class="txt">Messages in one place, answered from your own knowledge base.</span></button>
+        </div>
+        <p class="fine">Answers are written by AI on Claude, based on facts about VoroniX. Check important terms with the team.</p>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="/assets/chat.js" defer></script>
+</body>
+</html>

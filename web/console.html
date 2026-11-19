@@ -1,147 +1,72 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Консоль сотрудника · VoroniX.ai</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>VoroniX Console · Activity log</title>
   <meta name="author" content="Altynbekov Yernazar">
-  <meta name="color-scheme" content="dark light">
+  <meta name="robots" content="noindex">
   <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/assets/app.css">
-  <script src="/assets/theme.js"></script>
+  <link rel="stylesheet" href="/assets/site.css">
 </head>
-<body class="console-page">
-<header class="top">
-  <a class="who" href="/">
-    <span class="avatar"><img src="/assets/logo.svg" width="40" height="40" alt=""></span>
-    <span class="who-text">
-      <span class="who-name">Консоль сотрудника</span>
-      <span class="who-sub">VoroniX.ai · обновлено <span class="mono" id="updated">загрузка</span></span>
-    </span>
-  </a>
-  <div class="top-actions">
-    <span class="pill hide-sm" title="Открыто на компьютере, где запущен сервер, или после входа сотрудника">только для сотрудников</span>
-    <button class="icon-btn" type="button" id="toggle-theme" aria-label="Сменить тему" title="Сменить тему">
-      <svg class="ico when-dark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
-      <svg class="ico when-light" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
-    </button>
-    <a class="chip-btn" href="/">Открыть чат</a>
-  </div>
-</header>
-
-<nav class="tabs" role="tablist" aria-label="Разделы консоли">
-  <button class="tab is-on" type="button" role="tab" data-tab="overview" aria-selected="true">Обзор</button>
-  <button class="tab tab-live" type="button" role="tab" data-tab="live" aria-selected="false"><span class="rec-dot"></span>Слежка</button>
-  <button class="tab" type="button" role="tab" data-tab="access" aria-selected="false">Доступ</button>
-</nav>
-
-<main class="console-wrap">
-  <div class="banner" id="banner" role="status" hidden></div>
-
-  <form class="panel login" id="login" hidden>
-    <h2>Вход сотрудника</h2>
-    <p class="muted">Личный вход: логин и пароль сотрудника. Сервер выдаёт подписанный токен с вашей ролью, он сам истекает.</p>
-    <div class="login-row">
-      <input type="text" id="login-name" autocomplete="username" placeholder="Логин" required>
-      <input type="password" id="password" autocomplete="current-password" placeholder="Пароль сотрудника" required>
-      <button class="chip-btn" type="submit">Войти</button>
+<body>
+<div class="cs">
+  <aside class="cs-side" aria-label="Console navigation">
+    <a class="logo" href="/"><span class="logo-mark"><svg width="18" height="18" viewBox="0 0 26 26" aria-hidden="true"><circle cx="15" cy="13" r="8" fill="none" stroke="#fff" stroke-width="2.6"/><circle cx="3.5" cy="13" r="2.2" fill="#fff"/></svg></span>VoroniX Console</a>
+    <div class="cs-group">
+      <span>MONITOR</span>
+      <button class="cs-link on" type="button" data-view="all">Activity log <small class="live">live</small></button>
+      <button class="cs-link" type="button" data-view="answers">Answers <small id="n-answers">0</small></button>
     </div>
-    <p class="login-error" id="login-error" hidden></p>
-  </form>
-
-  <div id="tab-overview">
-  <section class="cards">
-    <div class="card"><div class="k">Ответов</div><div class="v" id="c-total">0</div><div class="s" id="c-outcomes">пока нет</div></div>
-    <div class="card"><div class="k">Первое слово, медиана</div><div class="v" id="c-first">нет</div><div class="s">от вопроса до первого слова</div></div>
-    <div class="card"><div class="k">Полный ответ, медиана</div><div class="v" id="c-full">нет</div><div class="s">от вопроса до последнего слова</div></div>
-    <div class="card"><div class="k">Токены</div><div class="v" id="c-tokens">0</div><div class="s" id="c-tokens-s">вход и выход</div></div>
-  </section>
-
-  <section class="grid2">
-    <div class="panel">
-      <div class="panel-head"><h2>Модель и сервер</h2></div>
-      <div class="panel-body"><dl class="facts" id="model-facts"></dl></div>
+    <div class="cs-group">
+      <span>SECURITY</span>
+      <button class="cs-link" type="button" data-view="guard">Guard events <small class="crit" id="n-guard">0</small></button>
+      <button class="cs-link" type="button" data-view="access">Access and sign ins <small id="n-access">0</small></button>
     </div>
-    <div class="panel">
-      <div class="panel-head"><h2>Слои ассистента</h2><span class="sub" id="layers-sub"></span></div>
-      <div class="panel-body"><ol class="layers" id="layers"></ol></div>
+    <div class="cs-group">
+      <span>SYSTEM</span>
+      <a class="cs-link" href="/chat">Agent chat</a>
+      <a class="cs-link" href="/#layers">The 7 layers</a>
     </div>
-  </section>
+    <div class="cs-me"><span>Signed in as <b id="me">loading</b></span><span id="me-exp"></span></div>
+  </aside>
 
-  <section class="panel">
-    <div class="panel-head"><h2>Последние ответы</h2><span class="sub">текст сообщений не хранится, только метрики</span></div>
-    <div class="table-wrap">
-      <table class="turns">
-        <thead><tr><th>Время</th><th>Сессия</th><th>Итог</th><th>Модель</th><th>Первое слово</th><th>Всего</th><th>Токены</th><th>Слои</th><th>Трейс</th><th>ID запроса или ошибка</th></tr></thead>
-        <tbody id="turns"></tbody>
-      </table>
-    </div>
-    <div class="empty" id="turns-empty">Пока нет ответов. Задайте вопрос в чате, и строка появится здесь.</div>
-  </section>
-
-  <section class="panel">
-    <div class="panel-head">
-      <h2>Системный промпт</h2><span class="sub mono" id="prompt-sub"></span>
-      <div class="right"><button class="chip-btn" type="button" id="copy-prompt">Скопировать</button></div>
-    </div>
-    <pre class="code" id="prompt"></pre>
-  </section>
-  </div>
-
-  <section id="tab-live" class="spy" hidden>
-    <canvas class="spy-rain" id="spy-rain" aria-hidden="true"></canvas>
-    <header class="spy-head">
-      <div class="spy-title"><span class="rec"><i></i>REC</span> VORONIX // SURVEILLANCE GRID</div>
-      <div class="spy-meta mono"><span id="spy-clock">--:--:--</span> · <span id="spy-link">CONNECTING</span> · наблюдателей <span id="spy-watchers">0</span></div>
+  <main class="cs-main">
+    <header class="cs-head">
+      <h1>Activity log <span class="live" id="live-state"><i></i><span id="live-text">connecting</span></span></h1>
+      <div class="cs-actions">
+        <button class="cs-btn" type="button" id="export">Export leads CSV</button>
+        <button class="cs-btn" type="button" id="logout">Sign out</button>
+      </div>
     </header>
-    <div class="spy-kpis">
-      <div class="kpi k-llm"><b id="k-turns">0</b><span>ответов</span></div>
-      <div class="kpi k-cost"><b id="k-cost">$0.0000</b><span>потрачено</span></div>
-      <div class="kpi k-cache"><b id="k-saved">$0.0000</b><span>сэкономил кэш</span></div>
-      <div class="kpi k-guard"><b id="k-attacks">0</b><span>атак отбито</span></div>
-      <div class="kpi k-deny"><b id="k-denied">0</b><span>отказов в доступе</span></div>
-    </div>
-    <div class="spy-grid">
-      <div class="spy-panel spy-term">
-        <div class="spy-ph">ПОТОК СОБЫТИЙ <span class="legend">
-          <i class="t-guard">GUARD</i><i class="t-attack">ATTACK</i><i class="t-cache">CACHE</i><i class="t-rag">RAG</i><i class="t-router">ROUTER</i><i class="t-llm">LLM</i><i class="t-tool">TOOL</i><i class="t-auth">AUTH</i><i class="t-deny">DENY</i>
-        </span></div>
-        <ol class="term" id="term" aria-live="polite"></ol>
-      </div>
-      <div class="spy-side">
-        <div class="spy-panel"><div class="spy-ph">СКОРОСТЬ ОТВЕТА, мс</div><canvas id="ch-latency" height="120"></canvas></div>
-        <div class="spy-panel spy-two">
-          <div><div class="spy-ph">ИЗ КЭША</div><canvas id="ch-cache" height="120"></canvas></div>
-          <div><div class="spy-ph">РАДАР АТАК</div><canvas id="ch-radar" height="120"></canvas></div>
-        </div>
-        <div class="spy-panel"><div class="spy-ph">БЛОКИ АТАК ПО МИНУТАМ</div><canvas id="ch-attacks" height="80"></canvas></div>
-      </div>
-    </div>
-    <div class="spy-panel spy-wf">
-      <div class="spy-ph">ЛЕНТА ВРЕМЕНИ ОТВЕТА <span class="mono" id="wf-sub">ожидание первого ответа</span></div>
-      <ol class="wf" id="wf"></ol>
-    </div>
-  </section>
 
-  <section id="tab-access" hidden>
-    <section class="panel">
-      <div class="panel-head"><h2>Мой пропуск</h2><span class="sub mono" id="acc-me"></span>
-        <div class="right"><button class="chip-btn" type="button" id="acc-logout">Выйти</button></div></div>
-      <div class="panel-body"><div class="ttl"><div class="ttl-bar" id="acc-ttl"></div></div><p class="muted" id="acc-ttl-text"></p></div>
+    <section class="cs-kpis" aria-label="Today">
+      <div class="kpi"><div class="kpi-top">Events</div><b id="k-events">0</b><span class="note">Agent, staff and API actions</span></div>
+      <div class="kpi crit"><div class="kpi-top">Critical</div><b id="k-crit">0</b><span class="note">Attacks blocked and access denied</span></div>
+      <div class="kpi warn"><div class="kpi-top">Warnings</div><b id="k-warn">0</b><span class="note">Failed sign ins, exports, fallbacks</span></div>
+      <div class="kpi"><div class="kpi-top">Answers</div><b id="k-answers">0</b><span class="note" id="k-answers-note">no answers yet</span></div>
     </section>
-    <section class="panel">
-      <div class="panel-head"><h2>Таблица прав</h2><span class="sub">права проверяет сервер, а не модель</span>
-        <div class="right"><a class="chip-btn" href="/console/api/leads.csv" id="acc-export">Выгрузить заявки CSV</a></div></div>
-      <div class="table-wrap"><table class="turns matrix" id="acc-matrix"></table></div>
-      <p class="login-error" id="acc-export-error" hidden></p>
-    </section>
-    <section class="panel">
-      <div class="panel-head"><h2>Сотрудники</h2><span class="sub">пароли хранятся только хэшем scrypt</span></div>
-      <div class="table-wrap"><table class="turns" id="acc-staff"></table></div>
-    </section>
-  </section>
-</main>
+
+    <div class="cs-tools">
+      <span class="lbl">Severity</span>
+      <div class="chipset" id="sev-chips"></div>
+      <span class="lbl">Layer</span>
+      <div class="chipset" id="layer-chips"></div>
+      <label class="sr" for="search">Search the log</label>
+      <input class="cs-search" id="search" type="search" placeholder="Search event, actor or details">
+    </div>
+
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr><th>Time</th><th>Severity</th><th>Event</th><th>Actor</th><th>Layer</th><th>Details</th><th>Latency</th><th>Cost</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="cs-empty" id="empty">No events yet. Ask the agent something in the chat and the log fills in live.</div>
+    </div>
+    <div class="cs-foot"><span id="shown">Showing 0 events</span><span>Message text is never stored here, only metrics.</span></div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
 <script src="/assets/console.js" defer></script>
-<script src="/assets/live.js" defer></script>
 </body>
 </html>

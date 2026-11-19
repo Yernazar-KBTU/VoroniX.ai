@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>VoroniX Console · Staff sign in</title>
+  <meta name="author" content="Altynbekov Yernazar">
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+<div class="lg" id="page">
+  <div class="lg-stage" id="stage">
+    <div class="lg-glow"></div>
+    <a class="logo lg-logo" href="/"><span class="logo-mark"><svg width="18" height="18" viewBox="0 0 26 26" aria-hidden="true"><circle cx="15" cy="13" r="8" fill="none" stroke="#fff" stroke-width="2.6"/><circle cx="3.5" cy="13" r="2.2" fill="#fff"/></svg></span>VoroniX.ai</a>
+    <div class="lg-quote">SHOW TODAY'S LEADS AND WHO TOOK THEM<small>EXPORT ALL CLIENT CONTACTS TO CSV</small></div>
+    <div class="lg-roles"><span>OPERATOR · SEES LEADS</span><span>MANAGER · EXPORTS CSV</span><span>OWNER · FULL ACCESS LOG</span><span>AND EVERY ACTION LOGGED</span></div>
+    <div class="robot" id="robot" role="img" aria-label="VoroniX robot that turns its head to follow your cursor">
+      <div class="rb-scene" id="rb-scene"></div>
+      <div class="rb-say" id="rb-say" hidden>Not looking. Type away.</div>
+    </div>
+    <div class="lg-title">
+      <span class="eyebrow">STAFF ACCESS TO</span>
+      <span class="frame f1">VoroniX<i class="a"></i><i class="b"></i><i class="c"></i><i class="d"></i></span>
+      <span class="frame f2">Console<i class="a"></i><i class="b"></i><i class="c"></i></span>
+    </div>
+  </div>
+
+  <form class="lg-form" id="login-form" novalidate>
+    <div>
+      <h1>Sign in</h1>
+      <p>Use your personal staff login. You get a signed pass with your role that expires on its own.</p>
+    </div>
+    <div class="field">
+      <label for="login-name">Login</label>
+      <input id="login-name" autocomplete="username" required>
+    </div>
+    <div class="field">
+      <div class="field-row"><label for="password">Password</label><span>Ask the owner to reset</span></div>
+      <input id="password" type="password" autocomplete="current-password" placeholder="Your password" required>
+    </div>
+    <p class="lg-error" id="login-error" role="alert" hidden></p>
+    <button class="lg-submit" id="submit" type="submit">Sign in</button>
+    <div class="lg-rolegrid">
+      <div><b>Operator</b><span>Sees leads</span></div>
+      <div><b>Manager</b><span>Plus CSV export</span></div>
+      <div><b>Owner</b><span>Plus access log</span></div>
+    </div>
+    <div class="lg-note">HMAC-SHA256 pass · expires on its own · revoked on sign out · rate limited</div>
+    <a class="lg-back" href="/chat">Back to the agent chat</a>
+  </form>
+</div>
+<script src="/assets/login.js" defer></script>
+</body>
+</html>
