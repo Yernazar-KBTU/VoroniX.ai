@@ -3,6 +3,18 @@
   "use strict";
 
   const $ = (id) => document.getElementById(id);
+
+  /* arriving from the landing light: the sign in appears from behind the light */
+  try {
+    if (sessionStorage.getItem("vx-light")) {
+      sessionStorage.removeItem("vx-light");
+      const light = document.createElement("div");
+      light.className = "light-in";
+      light.setAttribute("aria-hidden", "true");
+      document.body.append(light);
+      light.addEventListener("animationend", () => light.remove());
+    }
+  } catch (_) { /* storage blocked: no light */ }
   const D = Math.PI / 180;
   const sceneEl = $("rb-scene");
   const say = $("rb-say");

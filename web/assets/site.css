@@ -365,8 +365,12 @@ button.pill:hover, a.pill:hover { background: rgba(8, 5, 10, .8); }
 .ld-hero .hx-text p { margin-top: 14px; font-size: 16px; }
 .ld-hero .ld-cta { margin-top: 20px; }
 .hx-mid { min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; padding: 28px 16px; box-sizing: border-box; }
-.hx-win { display: block; height: 100%; max-height: 440px; max-width: 86vw; aspect-ratio: 16 / 10; border-radius: 18px; overflow: hidden; border: 1px solid rgba(170, 195, 255, .55); background: #05060c; box-shadow: 0 0 60px rgba(80, 130, 255, .35), 0 0 160px rgba(80, 130, 255, .18); transform: translateY(var(--dy, 0px)) scale(var(--s, 1)); transform-origin: 50% 50%; animation: vxGlow 4s ease-in-out infinite; will-change: transform; }
-.hx-win img { display: block; width: 100%; height: 100%; object-fit: cover; opacity: calc(.5 + var(--p, 0) * .5); }
+.hx-win { display: block; height: 100%; max-height: 440px; max-width: 86vw; aspect-ratio: 16 / 10; border-radius: 18px; overflow: hidden; border: 1px solid rgba(220, 230, 255, .9); background: #ffffff; box-shadow: 0 0 60px rgba(80, 130, 255, .35), 0 0 160px rgba(80, 130, 255, .18); transform: translateY(var(--dy, 0px)) scale(var(--s, 1)); transform-origin: 50% 50%; animation: vxGlow 4s ease-in-out infinite; will-change: transform; }
+.hx-core { display: block; width: 100%; height: 100%; background: radial-gradient(70% 80% at 50% 50%, #ffffff 0%, #e4ecff 30%, #8fb0ff 62%, #3d64f0 88%, #1b2f9e 100%); animation: vxBreath 4s ease-in-out infinite; }
+.hx-flash { position: fixed; inset: 0; z-index: 50; pointer-events: none; opacity: var(--flash, 0); background: radial-gradient(80% 80% at 50% 50%, #ffffff 0%, #eef3ff 45%, #b9ccff 80%, #7c9bff 100%); }
+.light-in { position: fixed; inset: 0; z-index: 50; pointer-events: none; background: radial-gradient(80% 80% at 50% 50%, #ffffff 0%, #eef3ff 45%, #b9ccff 80%, #7c9bff 100%); animation: vxLightOut 1.6s ease-out forwards; }
+@keyframes vxBreath { 0%, 100% { filter: brightness(.92); } 50% { filter: brightness(1.08); } }
+@keyframes vxLightOut { 0% { opacity: 1; } 25% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
 .ld-hero .ticker { opacity: var(--fade, 1); }
 @keyframes vxGlow { 0%, 100% { box-shadow: 0 0 50px rgba(80, 130, 255, .3), 0 0 140px rgba(80, 130, 255, .14); } 50% { box-shadow: 0 0 80px rgba(80, 130, 255, .45), 0 0 200px rgba(80, 130, 255, .22); } }
-@media (prefers-reduced-motion: reduce) { .hx-win { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .hx-win, .hx-core { animation: none; } .light-in { display: none; } }

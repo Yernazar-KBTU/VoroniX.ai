@@ -1,4 +1,4 @@
-/* VoroniX.ai landing: a softly glowing window in the middle. Scrolling pushes the camera into it and opens the staff sign in. */
+/* VoroniX.ai landing: a softly glowing window in the middle. Scrolling pushes the camera into it, the light floods the screen and the staff sign in appears behind it. */
 (() => {
   "use strict";
   const hero = document.getElementById("hero");
@@ -26,10 +26,11 @@
     const cover = Math.max(window.innerWidth / base.w, window.innerHeight / base.h) * 1.04;
     win.style.setProperty("--s", (1 + t * (cover - 1)).toFixed(4));
     win.style.setProperty("--dy", (t * (window.innerHeight / 2 - base.cy)).toFixed(1) + "px");
-    win.style.setProperty("--p", t.toFixed(3));
+    document.documentElement.style.setProperty("--flash", ease(clamp((p - 0.5) / 0.42)).toFixed(3));
     hero.style.setProperty("--fade", (1 - clamp(p * 4)).toFixed(3));
     if (p > 0.97 && !leaving) {
       leaving = true;
+      try { sessionStorage.setItem("vx-light", "1"); } catch (_) { /* storage blocked: sign in opens without the light */ }
       window.location.assign("/login");
     }
   }
