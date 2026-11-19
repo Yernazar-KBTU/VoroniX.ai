@@ -24,7 +24,6 @@
       <a class="btn btn-white" href="/chat">Talk to the agent</a>
       <a class="btn btn-ghost" href="#layers">See the 7 layers</a>
     </div>
-    <div class="slit" aria-hidden="true"><div class="slit-glow"></div><div class="slit-line"></div><div class="slit-shine"></div></div>
     <div class="ticker" aria-label="The 7 layers">
       <div class="ticker-track">
         <span><b>01</b>System prompt</span><span><b>02</b>Knowledge search</span><span><b>03</b>CRM tools</span><span><b>04</b>Roles and sign in</span><span><b>05</b>Injection guard</span><span><b>06</b>Cache and router</span><span><b>07</b>Live observability</span>
@@ -32,6 +31,23 @@
       </div>
     </div>
   </header>
+
+  <section class="ld-motion" id="motion" aria-label="From a slit of light into the product">
+    <div class="mo-stick">
+      <div class="mo-blue" aria-hidden="true"></div>
+      <div class="mo-frame">
+      <div class="slit-glow" aria-hidden="true"></div><div class="slit-shine" aria-hidden="true"></div>
+      <div class="mo-screen">
+        <div class="mo-ui">
+          <div class="mo-bar"><span class="dot"></span>VoroniX Agent<em>answer in 1.2 s</em></div>
+          <p class="mo-q">Can we import our clients from Excel?</p>
+          <p class="mo-a">Yes. Upload the Excel or CSV file in Data Import and VoroniX maps the columns for you, no retyping needed.</p>
+          <div class="mo-trace"><span class="t-guard">Guard ok</span><span class="t-search">Knowledge: Data import</span><span class="t-router">Fast model</span><span class="t-cache">Cached next time</span></div>
+        </div>
+      </div>
+      </div>
+    </div>
+  </section>
 
   <section class="ld-sec" id="product">
     <span class="eyebrow">THE PRODUCT</span>
@@ -88,5 +104,6 @@
   </section>
 
   <footer class="ld-foot"><span>© 2026 VoroniX.ai · Altynbekov Yernazar</span><span>Built on Claude by Anthropic</span></footer>
+<script src="/assets/landing.js" defer></script>
 </body>
 </html>
