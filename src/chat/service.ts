@@ -81,9 +81,11 @@ interface TurnInput {
   readonly signal: AbortSignal | undefined;
 }
 
-/** Блок доступа для вошедшего сотрудника. Его добавляет только сервер после проверки пароля. */
-export const ACCESS_MANAGER =
-  '<access role="manager">The server verified this person\'s login: VoroniX staff, role manager. Staff tools are allowed.</access>';
+/** Блок доступа для вошедшего сотрудника. Его добавляет только сервер после проверки подписанного токена. */
+export function accessBlock(role: Role): string {
+  return `<access role="${role}">The server verified this person's login with a signed staff token: VoroniX staff, role ${role}. Only the tools listed for this role are available; the server rejects any other tool.</access>`;
+}
+export const ACCESS_MANAGER = accessBlock("manager");
 
 /** Отдаёт готовый текст кусочками, как будто он пишется: для кэша и шаблонных ответов. */
 function emitText(onText: ((delta: string) => void) | undefined, text: string): void {
@@ -166,6 +168,7 @@ export class ChatService {
     const layers = this.#options.layers ?? {};
     const startedAt = Date.now();
     const trace = new Trace();
+    let cacheMatch: { readonly kind: "exact" | "semantic"; readonly similarity: number } | null = null;
 
     const finish = (result: {
       readonly outcome: TurnOutcome;
@@ -192,6 +195,7 @@ export class ChatService {
         inputTokens: reply?.inputTokens ?? (outcome === "blocked" || result.cached ? 0 : null),
         outputTokens: reply?.outputTokens ?? (outcome === "blocked" || result.cached ? 0 : null),
         cached: result.cached,
+        cacheMatch,
         route: result.route === null ? null : { model: result.route.model, tier: result.route.tier, reason: result.route.reason },
         sources: result.sources,
         tools: (reply?.toolCalls ?? []).map((call) => ({ name: call.name, ok: call.ok })),
@@ -249,23 +253,25 @@ export class ChatService {
     let cacheKey: string | null = null;
     if (cache !== undefined && conversation.history.length === 0 && role === "client" && (guard === null || (guard.pii === 0 && guard.injection === 0))) {
       const done = trace.begin("cache");
-      cacheKey = cache.key(modelText, layers.version ?? "");
-      const hit = cache.get(cacheKey);
-      done({ hit: hit !== undefined });
-      if (hit !== undefined) {
+      const match = cache.find(modelText, layers.version ?? "");
+      done({ hit: match !== undefined, match: match?.kind ?? null, similarity: match?.similarity ?? null });
+      if (match !== undefined) {
+        const hit = match.answer;
         emitText(handlers.onText, hit.text);
         const history: ChatMessage[] = [
           { role: "user", content: modelText },
           { role: "assistant", content: hit.text },
         ];
+        cacheMatch = { kind: match.kind, similarity: match.similarity };
         return finish({ outcome: "answered", answer: hit.text, history, reply: null, route: null, sources: hit.sources, guard, cached: true, servedBy: hit.servedBy });
       }
+      cacheKey = modelText;
     }
 
     // Шаг 4: роль подтверждает сервер. Отдельный блок перед вопросом; слова человека о себе роль не меняют.
     const blocks: { type: "text"; text: string }[] = [];
-    if (role === "manager") {
-      blocks.push({ type: "text", text: ACCESS_MANAGER });
+    if (role !== "client") {
+      blocks.push({ type: "text", text: accessBlock(role) });
     }
 
     // Шаг 2, RAG: находим разделы базы знаний и кладём их рядом с вопросом.
@@ -372,7 +378,7 @@ export class ChatService {
 
     const saved = outcome === "answered" || outcome === "truncated" ? reply : null;
     if (saved !== null && cache !== undefined && cacheKey !== null && outcome === "answered" && (saved.toolCalls ?? []).length === 0) {
-      cache.set(cacheKey, { text: saved.text, servedBy: saved.servedBy, sources });
+      cache.put(cacheKey, layers.version ?? "", { text: saved.text, servedBy: saved.servedBy, sources });
     }
     return finish({
       outcome,

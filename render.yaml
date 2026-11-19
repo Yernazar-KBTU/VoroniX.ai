@@ -15,6 +15,10 @@ services:
         sync: false
       - key: VORONIX_MANAGER_PASSWORD
         generateValue: true
+      - key: VORONIX_STAFF
+        sync: false
+      - key: VORONIX_TOKEN_SECRET
+        generateValue: true
       - key: VORONIX_COOKIE_SECURE
         value: "1"
       - key: VORONIX_TRUST_PROXY

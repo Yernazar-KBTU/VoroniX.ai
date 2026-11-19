@@ -17,6 +17,7 @@
     if (!response.ok) {
       const error = new Error((data && data.error && data.error.message) || "Ошибка " + response.status);
       error.status = response.status;
+      error.code = data && data.error && data.error.code;
       throw error;
     }
     return data;
@@ -24,10 +25,11 @@
 
   function layersText(turn) {
     const parts = [];
-    if (turn.role === "manager") parts.push("роль: менеджер");
+    const roleNames = { operator: "оператор", manager: "менеджер", owner: "владелец" };
+    if (roleNames[turn.role]) parts.push("роль: " + roleNames[turn.role]);
     if (turn.guard && turn.guard.blocked) parts.push("защита: остановлено до модели");
     else if (turn.guard && turn.guard.pii) parts.push("скрыто данных: " + turn.guard.pii);
-    if (turn.cached) parts.push("кэш ответов");
+    if (turn.cached) parts.push(turn.cacheMatch && turn.cacheMatch.kind === "semantic" ? "кэш по смыслу " + Math.round(turn.cacheMatch.similarity * 100) + "%" : "кэш ответов");
     if (turn.route) parts.push((turn.route.tier === "fast" ? "быстрая модель" : "основная модель") + " (" + turn.route.reason + ")");
     if (turn.sources && turn.sources.length) parts.push("RAG: " + turn.sources.map((s) => s.title).join(", "));
     if (turn.tools && turn.tools.length) parts.push("инструменты: " + turn.tools.map((t) => t.name + (t.ok ? "" : " (ошибка)")).join(", "));
@@ -190,6 +192,10 @@
       $("updated").textContent = clock(new Date().toISOString());
     } catch (error) {
       if (error.status === 403) {
+        if (error.code === "token_expired") {
+          $("login-error").textContent = "Срок входа истёк. Войдите снова.";
+          $("login-error").hidden = false;
+        }
         $("login").hidden = false;
         $("banner").hidden = true;
         return;
@@ -204,7 +210,7 @@
     const response = await fetch("/api/login", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ password: $("password").value }),
+      body: JSON.stringify({ login: $("login-name").value, password: $("password").value }),
     });
     const data = await response.json().catch(() => null);
     if (response.ok) {

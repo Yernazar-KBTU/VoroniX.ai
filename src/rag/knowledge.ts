@@ -137,6 +137,13 @@ export class KnowledgeBase {
     return new KnowledgeBase(chunks, hash.digest("hex").slice(0, 12));
   }
 
+  /** Насколько слово редкое в базе знаний: редкие слова («Pro», «Telegram») весят больше частых («VoroniX»). */
+  idf(term: string): number {
+    const total = this.#index.length;
+    const df = this.#docFreq.get(term) ?? 0;
+    return Math.log(1 + (total - df + 0.5) / (df + 0.5));
+  }
+
   search(query: string, options: SearchOptions = {}): Hit[] {
     const { topK = 3, relative = 0.45, minScore = 1.5 } = options;
     const terms = [...new Set(tokenize(query))];
