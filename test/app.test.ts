@@ -70,7 +70,10 @@ describe("веб-сервер", () => {
     assert.equal(page.headers.get("x-content-type-options"), "nosniff");
     assert.equal(page.headers.get("x-frame-options"), "DENY");
     assert.match(await page.text(), /VoroniX\.ai/);
-    assert.equal((await fetch(base + "/assets/app.css")).status, 200);
+    assert.equal((await fetch(base + "/assets/site.css")).status, 200);
+    for (const route of ["/chat", "/login", "/console"]) {
+      assert.equal((await fetch(base + route)).status, 200, route);
+    }
     assert.equal((await fetch(base + "/assets/..%2f..%2fpackage.json")).status, 404);
     assert.equal((await fetch(base + "/nope")).status, 404);
     const wrongMethod = await fetch(base + "/api/chat");

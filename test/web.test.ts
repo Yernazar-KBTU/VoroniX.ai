@@ -20,8 +20,8 @@ const htmlFiles = webFiles.filter((file) => file.endsWith(".html"));
 const scriptFiles = webFiles.filter((file) => file.endsWith(".js"));
 
 describe("веб-интерфейс", () => {
-  it("есть чат, консоль и их скрипты", () => {
-    assert.deepEqual(htmlFiles.map((file) => path.basename(file)).sort(), ["console.html", "index.html"]);
+  it("есть лендинг, чат, вход, консоль и их скрипты", () => {
+    assert.deepEqual(htmlFiles.map((file) => path.basename(file)).sort(), ["chat.html", "console.html", "index.html", "login.html"]);
     assert.ok(scriptFiles.length >= 3);
   });
 

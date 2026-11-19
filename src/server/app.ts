@@ -391,6 +391,8 @@ export function createApp(deps: AppDeps): App {
 
   const routes = new Map<string, Readonly<Record<string, Handler>>>([
     ["/", { GET: page("index.html") }],
+    ["/chat", { GET: page("chat.html") }],
+    ["/login", { GET: page("login.html") }],
     ["/console", { GET: page("console.html") }],
     ["/api/health", { GET: json(() => ({ ok: true })) }],
     ["/api/info", { GET: json(() => ({ ...deps.publicInfo, ready: deps.ready })) }],
