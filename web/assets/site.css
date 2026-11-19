@@ -358,19 +358,22 @@ button.pill:hover, a.pill:hover { background: rgba(8, 5, 10, .8); }
   .cs-search { margin-left: 0; width: 100%; }
 }
 
-/* hero motion: a softly glowing window sits in the middle; scrolling pushes the camera into it and opens the staff sign in */
-.hx-stick { position: sticky; top: 77px; height: calc(100vh - 77px); width: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; justify-items: center; padding-top: 8px; box-sizing: border-box; }
-.hx-text { display: flex; flex-direction: column; align-items: center; padding: 28px 16px 0; opacity: var(--fade, 1); }
-.ld-hero .hx-text h1 { font-size: clamp(32px, 5.2vw, 64px); margin-top: 14px; }
-.ld-hero .hx-text p { margin-top: 14px; font-size: 16px; }
-.ld-hero .ld-cta { margin-top: 20px; }
-.hx-mid { min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; padding: 28px 16px; box-sizing: border-box; }
-.hx-win { display: block; height: 100%; max-height: 440px; max-width: 86vw; aspect-ratio: 16 / 10; border-radius: 18px; overflow: hidden; border: 1px solid rgba(220, 230, 255, .9); background: #ffffff; box-shadow: 0 0 60px rgba(80, 130, 255, .35), 0 0 160px rgba(80, 130, 255, .18); transform: translateY(var(--dy, 0px)) scale(var(--s, 1)); transform-origin: 50% 50%; animation: vxGlow 4s ease-in-out infinite; will-change: transform; }
-.hx-core { display: block; width: 100%; height: 100%; background: radial-gradient(70% 80% at 50% 50%, #ffffff 0%, #e4ecff 30%, #8fb0ff 62%, #3d64f0 88%, #1b2f9e 100%); animation: vxBreath 4s ease-in-out infinite; }
-.hx-flash { position: fixed; inset: 0; z-index: 50; pointer-events: none; opacity: var(--flash, 0); background: radial-gradient(80% 80% at 50% 50%, #ffffff 0%, #eef3ff 45%, #b9ccff 80%, #7c9bff 100%); }
-.light-in { position: fixed; inset: 0; z-index: 50; pointer-events: none; background: radial-gradient(80% 80% at 50% 50%, #ffffff 0%, #eef3ff 45%, #b9ccff 80%, #7c9bff 100%); animation: vxLightOut 1.6s ease-out forwards; }
-@keyframes vxBreath { 0%, 100% { filter: brightness(.92); } 50% { filter: brightness(1.08); } }
+/* hero motion: a thin slit of light under the heading; on scroll it tilts up into a glowing screen, the page turns blue, the camera flies into the light and the sign in appears behind it */
+.hx-stick { position: sticky; top: 77px; height: calc(100vh - 77px); width: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; justify-items: center; padding-top: 8px; box-sizing: border-box; }
+.hx-text, .hx-under { position: relative; z-index: 3; display: flex; flex-direction: column; align-items: center; padding: 0 16px; opacity: var(--fade, 1); }
+.hx-text { padding-top: 26px; }
+.ld-hero .hx-text h1 { font-size: clamp(32px, 5.2vw, 64px); margin-top: 14px; max-width: 860px; }
+.hx-under p { margin: 0; max-width: 560px; color: var(--muted); font-size: 15px; }
+.ld-hero .hx-under .ld-cta { margin: 18px 0 22px; }
+.hx-mid { position: relative; z-index: 1; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; padding: 10px 16px; box-sizing: border-box; perspective: 1100px; perspective-origin: 50% 30%; }
+.hx-win { position: relative; display: block; height: 100%; max-height: 360px; max-width: 80vw; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; border: 1px solid rgba(255, 255, 255, .7); background: #fff; transform: translateY(var(--dy, 0px)) rotateX(var(--tilt, 88deg)) scale(var(--s, 1)); transform-origin: 50% 50%; box-shadow: 0 0 40px rgba(140, 120, 255, .55), 0 30px 120px rgba(110, 80, 255, .45); will-change: transform; }
+.hx-core { display: block; width: 100%; height: 100%; background: radial-gradient(60% 70% at 50% 45%, rgba(255, 255, 255, .95), rgba(255, 255, 255, 0) 70%), linear-gradient(90deg, #ff7a45 0%, #ff4f9a 22%, #c86bff 45%, #6f8dff 68%, #7fd8ff 100%); animation: vxBreath 4s ease-in-out infinite; }
+.hx-spill { position: absolute; left: 50%; top: 50%; width: min(1100px, 110vw); height: 70%; transform: translate(-50%, -20%); background: radial-gradient(50% 50% at 50% 30%, rgba(120, 90, 255, .55), rgba(60, 70, 255, .22) 45%, rgba(0, 0, 0, 0) 75%); filter: blur(18px); opacity: calc(.55 + var(--open, 0) * .45); pointer-events: none; }
+.hx-tint { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: var(--open, 0); background: radial-gradient(70% 70% at 50% 55%, rgba(70, 90, 255, .55), rgba(40, 50, 190, .45) 50%, rgba(20, 25, 110, .5) 100%); }
+.ld-hero { isolation: isolate; }
+.hx-flash { position: fixed; inset: 0; z-index: 50; pointer-events: none; opacity: var(--flash, 0); background: radial-gradient(75% 75% at 50% 50%, #ffffff 0%, #e8eeff 40%, #a9bfff 75%, #6f8cff 100%); }
+.light-in { position: fixed; inset: 0; z-index: 50; pointer-events: none; background: radial-gradient(75% 75% at 50% 50%, #ffffff 0%, #e8eeff 40%, #a9bfff 75%, #6f8cff 100%); animation: vxLightOut 1.6s ease-out forwards; }
+.ld-hero .ticker { position: relative; z-index: 3; opacity: var(--fade, 1); }
+@keyframes vxBreath { 0%, 100% { filter: brightness(.94) saturate(1); } 50% { filter: brightness(1.06) saturate(1.15); } }
 @keyframes vxLightOut { 0% { opacity: 1; } 25% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
-.ld-hero .ticker { opacity: var(--fade, 1); }
-@keyframes vxGlow { 0%, 100% { box-shadow: 0 0 50px rgba(80, 130, 255, .3), 0 0 140px rgba(80, 130, 255, .14); } 50% { box-shadow: 0 0 80px rgba(80, 130, 255, .45), 0 0 200px rgba(80, 130, 255, .22); } }
-@media (prefers-reduced-motion: reduce) { .hx-win, .hx-core { animation: none; } .light-in { display: none; } }
+@media (prefers-reduced-motion: reduce) { .hx-core { animation: none; } .light-in { display: none; } }
