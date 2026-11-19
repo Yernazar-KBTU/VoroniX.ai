@@ -12,98 +12,32 @@
 <body class="ld">
   <nav class="ld-nav">
     <a class="logo" href="/"><span class="logo-mark"><svg width="18" height="18" viewBox="0 0 26 26" aria-hidden="true"><circle cx="15" cy="13" r="8" fill="none" stroke="#fff" stroke-width="2.6"/><circle cx="3.5" cy="13" r="2.2" fill="#fff"/></svg></span>VoroniX.ai</a>
-    <div class="ld-links"><a href="#product">Product</a><a href="#layers">7 layers</a><a href="#proof">Proof</a><a href="/login">Staff console</a></div>
+    <div class="ld-links"><a href="/chat">Chat</a><a href="/login">Staff console</a></div>
     <a class="btn btn-white" href="/chat">Open the agent</a>
   </nav>
 
-  <header class="ld-hero">
-    <span class="eyebrow">AI SUPPORT &amp; SALES AGENT FOR VORONIX CRM</span>
-    <h1>Every client message, answered in seconds</h1>
-    <p>VoroniX.ai answers questions about the CRM from its own knowledge base, books demos, and shows staff exactly how every answer was made.</p>
-    <div class="ld-cta">
-      <a class="btn btn-white" href="/chat">Talk to the agent</a>
-      <a class="btn btn-ghost" href="#layers">See the 7 layers</a>
-    </div>
-    <div class="ticker" aria-label="The 7 layers">
-      <div class="ticker-track">
-        <span><b>01</b>System prompt</span><span><b>02</b>Knowledge search</span><span><b>03</b>CRM tools</span><span><b>04</b>Roles and sign in</span><span><b>05</b>Injection guard</span><span><b>06</b>Cache and router</span><span><b>07</b>Live observability</span>
-        <span aria-hidden="true"><b>01</b>System prompt</span><span aria-hidden="true"><b>02</b>Knowledge search</span><span aria-hidden="true"><b>03</b>CRM tools</span><span aria-hidden="true"><b>04</b>Roles and sign in</span><span aria-hidden="true"><b>05</b>Injection guard</span><span aria-hidden="true"><b>06</b>Cache and router</span><span aria-hidden="true"><b>07</b>Live observability</span>
+  <header class="ld-hero" id="hero">
+    <div class="hx-stick">
+      <div class="hx-text">
+        <span class="eyebrow">AI SUPPORT &amp; SALES AGENT FOR VORONIX CRM</span>
+        <h1>Every client message, answered in seconds</h1>
+        <p>VoroniX.ai answers questions about the CRM from its own knowledge base, books demos, and shows staff exactly how every answer was made.</p>
+        <div class="ld-cta">
+          <a class="btn btn-white" href="/chat">Talk to the agent</a>
+          <a class="btn btn-ghost" href="/login">Staff sign in</a>
+        </div>
+      </div>
+      <div class="hx-mid">
+        <a class="hx-win" id="hx-win" href="/login" aria-label="Open the staff sign in"><img src="/assets/login-preview.png" alt="" width="1200" height="750"></a>
+      </div>
+      <div class="ticker" aria-label="The 7 layers">
+        <div class="ticker-track">
+          <span><b>01</b>System prompt</span><span><b>02</b>Knowledge search</span><span><b>03</b>CRM tools</span><span><b>04</b>Roles and sign in</span><span><b>05</b>Injection guard</span><span><b>06</b>Cache and router</span><span><b>07</b>Live observability</span>
+          <span aria-hidden="true"><b>01</b>System prompt</span><span aria-hidden="true"><b>02</b>Knowledge search</span><span aria-hidden="true"><b>03</b>CRM tools</span><span aria-hidden="true"><b>04</b>Roles and sign in</span><span aria-hidden="true"><b>05</b>Injection guard</span><span aria-hidden="true"><b>06</b>Cache and router</span><span aria-hidden="true"><b>07</b>Live observability</span>
+        </div>
       </div>
     </div>
   </header>
-
-  <section class="ld-motion" id="motion" aria-label="From a slit of light into the product">
-    <div class="mo-stick">
-      <div class="mo-blue" aria-hidden="true"></div>
-      <div class="mo-frame">
-      <div class="slit-glow" aria-hidden="true"></div><div class="slit-shine" aria-hidden="true"></div>
-      <div class="mo-screen">
-        <div class="mo-ui">
-          <div class="mo-bar"><span class="dot"></span>VoroniX Agent<em>answer in 1.2 s</em></div>
-          <p class="mo-q">Can we import our clients from Excel?</p>
-          <p class="mo-a">Yes. Upload the Excel or CSV file in Data Import and VoroniX maps the columns for you, no retyping needed.</p>
-          <div class="mo-trace"><span class="t-guard">Guard ok</span><span class="t-search">Knowledge: Data import</span><span class="t-router">Fast model</span><span class="t-cache">Cached next time</span></div>
-        </div>
-      </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="ld-sec" id="product">
-    <span class="eyebrow">THE PRODUCT</span>
-    <h2>One answer, seven checks, full trace</h2>
-    <p class="lead">A visitor asks, the agent answers in their language. Behind it, every layer leaves a timed record that staff can open in the console.</p>
-    <div class="screen">
-      <div class="screen-in">
-        <div class="screen-chat">
-          <div class="bub-u">Please book me a demo this week. My number is +7 701 555 01 42.</div>
-          <div class="bub-a">Done. You are booked for a 30 minute demo with the VoroniX team on Thursday at 11:00 Almaty time. Your number was masked before it reached the model.</div>
-        </div>
-        <div class="trace" aria-label="How the answer was made">
-          <span class="eyebrow">HOW THIS ANSWER WAS MADE</span>
-          <div class="trace-row c-guard"><span>Guard</span><i class="trace-bar w-1"></i><span>1 ms</span></div>
-          <div class="trace-row c-cache"><span>Cache</span><i class="trace-bar w-1"></i><span>miss</span></div>
-          <div class="trace-row c-search"><span>Search</span><i class="trace-bar w-2"></i><span>9 ms</span></div>
-          <div class="trace-row c-router"><span>Router</span><i class="trace-bar w-1"></i><span>smart</span></div>
-          <div class="trace-row c-model"><span>Model</span><i class="trace-bar w-4"></i><span>1.62 s</span></div>
-          <div class="trace-row c-tools"><span>Tools</span><i class="trace-bar w-3"></i><span>120 ms</span></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="ld-sec" id="layers">
-    <span class="eyebrow">ARCHITECTURE</span>
-    <h2>Seven layers between the client and the model</h2>
-    <p class="lead">A bare API key gives you a chatbot. Each layer below closes one way that chatbot fails in front of real clients.</p>
-    <div class="layers">
-      <div class="layer"><span class="layer-n">01</span><h3>System prompt</h3><p>Versioned rules: speaks for VoroniX only, never praises a competitor, never invents prices.</p><span class="layer-proof">prompt v2 · fingerprint</span></div>
-      <div class="layer"><span class="layer-n">02</span><h3>Knowledge search</h3><p>Answers come from 7 knowledge articles, with the source shown under every reply.</p><span class="layer-proof">no source, no claim</span></div>
-      <div class="layer"><span class="layer-n">03</span><h3>CRM tools</h3><p>Real actions over MCP: free demo slots, demo booking, the lead list for staff.</p><span class="layer-proof">book_demo · list_leads</span></div>
-      <div class="layer"><span class="layer-n">04</span><h3>Roles and sign in</h3><p>Personal staff logins, three roles and a signed pass that expires on its own.</p><span class="layer-proof">HMAC-SHA256 · 8 h</span></div>
-      <div class="layer"><span class="layer-n">05</span><h3>Injection guard</h3><p>Attempts to rewrite the rules are stopped before the model. Phones and emails are masked.</p><span class="layer-proof">0 raw PII sent</span></div>
-      <div class="layer"><span class="layer-n">06</span><h3>Cache and router</h3><p>Questions with the same meaning come from cache. Easy ones go to a fast, cheap model.</p><span class="layer-proof">repeat answer: $0</span></div>
-      <div class="layer"><span class="layer-n">07</span><h3>Live observability</h3><p>Every answer, sign in, export and attack lands in the activity log the moment it happens.</p><span class="layer-proof">live activity log</span></div>
-    </div>
-  </section>
-
-  <section class="ld-sec" id="proof">
-    <span class="eyebrow">PROOF</span>
-    <h2>Checked, not promised</h2>
-    <div class="stats">
-      <div class="stat"><b>93</b><span>automated tests pass on every change</span></div>
-      <div class="stat"><b>41/41</b><span>live checks against the real model</span></div>
-      <div class="stat"><b>$0</b><span>for an answer served from cache</span></div>
-      <div class="stat"><b>3</b><span>staff roles with their own rights</span></div>
-    </div>
-  </section>
-
-  <section class="ld-end">
-    <h2>Ask it anything about VoroniX</h2>
-    <div class="ld-cta"><a class="btn btn-white" href="/chat">Open the agent</a><a class="btn btn-ghost" href="/login">Staff sign in</a></div>
-  </section>
-
-  <footer class="ld-foot"><span>© 2026 VoroniX.ai · Altynbekov Yernazar</span><span>Built on Claude by Anthropic</span></footer>
 <script src="/assets/landing.js" defer></script>
 </body>
 </html>
