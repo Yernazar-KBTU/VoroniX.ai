@@ -5,7 +5,10 @@ import { KNOWLEDGE_DIR, WEB_DIR } from "../config/paths.ts";
 import { ResponseCache } from "../cache/response-cache.ts";
 import { KnowledgeBase } from "../rag/knowledge.ts";
 import { FAST_MODEL } from "../router/router.ts";
-import { DemoCrm, ToolRegistry, crmTools } from "../tools/crm.ts";
+import { DemoCrm, ToolRegistry, crmTools, leadsCsv } from "../tools/crm.ts";
+import { StaffDirectory, parseStaffEnv } from "../auth/staff.ts";
+import { TokenIssuer } from "../auth/token.ts";
+import { LiveFeed } from "../trace/live.ts";
 import { loadSystemPrompt } from "../prompt/system-prompt.ts";
 import { Assistant } from "../llm/assistant.ts";
 import { createClient } from "../llm/client.ts";
@@ -58,8 +61,14 @@ export async function startServer(options: StartOptions): Promise<RunningServer>
   const knowledge = KnowledgeBase.load(KNOWLEDGE_DIR);
   const crm = new DemoCrm();
   const tools = new ToolRegistry(crmTools(crm));
-  const cache = new ResponseCache({ ttlMs: 60 * 60_000, maxEntries: 500 });
-  const password = env["VORONIX_MANAGER_PASSWORD"]?.trim() ?? "";
+  const cache = new ResponseCache({ ttlMs: 60 * 60_000, maxEntries: 500, weigh: (term) => knowledge.idf(term) });
+  const staff = new StaffDirectory(parseStaffEnv(env["VORONIX_STAFF"], env["VORONIX_MANAGER_PASSWORD"]));
+  const tokenTtl = Number.parseInt(env["VORONIX_TOKEN_TTL_SEC"] ?? "", 10);
+  const tokens = new TokenIssuer({
+    ...(env["VORONIX_TOKEN_SECRET"] === undefined ? {} : { secret: env["VORONIX_TOKEN_SECRET"] }),
+    ttlSec: Number.isInteger(tokenTtl) && tokenTtl >= 30 ? tokenTtl : 8 * 3600,
+  });
+  const feed = new LiveFeed();
   const chat = new ChatService(engine, {
     model: config.assistant.model,
     maxInputChars: limits.maxInputChars,
@@ -75,6 +84,8 @@ export async function startServer(options: StartOptions): Promise<RunningServer>
       version: `${system.fingerprint}:${knowledge.version}`,
     },
   });
+  chat.log.subscribe((record) => feed.turn(record));
+  tools.onDeny = (name, role) => feed.publish("deny", { what: `tool:${name}`, role, login: null, ip: null });
   const crmKey = env["VORONIX_CRM_KEY"]?.trim() ?? "";
   const client = ready ? createClient() : null;
   const crmLink =
@@ -109,7 +120,10 @@ export async function startServer(options: StartOptions): Promise<RunningServer>
     sessionTtlSec: limits.sessionTtlMinutes * 60,
     tools,
     loginLimiter: new RateLimiter({ limit: 5, windowMs: 10 * 60_000 }),
-    ...(password.length >= 8 ? { managerPassword: password } : {}),
+    staff,
+    tokens,
+    feed,
+    leadsCsv: () => leadsCsv(crm),
   });
   const server = createServer(app.handle);
   await new Promise<void>((resolve, reject) => {

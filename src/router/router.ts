@@ -33,7 +33,7 @@ const COMPLEX =
 export function routeQuestion(text: string, context: RouteContext): Route {
   const main = (reason: string): Route => ({ tier: "main", model: context.mainModel, reason });
   const fast = (reason: string): Route => ({ tier: "fast", model: context.fastModel, reason });
-  if (context.role === "manager") {
+  if (context.role !== "client") {
     return main("сотрудник: нужны инструменты CRM");
   }
   if (ACTION.test(text)) {

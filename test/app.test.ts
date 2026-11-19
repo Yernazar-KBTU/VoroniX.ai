@@ -215,3 +215,33 @@ describe("веб-сервер", () => {
     assert.equal(other.status, 200);
   });
 });
+
+describe("шаг 4: личные входы и три роли", () => {
+  it("оператор видит заявки, но не выгружает; менеджер выгружает; выход отзывает токен", async () => {
+    const { StaffDirectory, makeAccount } = await import("../src/auth/staff.ts");
+    const { LiveFeed } = await import("../src/trace/live.ts");
+    const feed = new LiveFeed();
+    const staff = new StaffDirectory([makeAccount("aliya", "operator", "operator-pass-1"), makeAccount("dana", "manager", "manager-pass-1")]);
+    const { base } = await start(new FakeEngine(), { consoleAccess: () => false, staff, feed, leadsCsv: () => "booking_id\r\nAP-1\r\n" });
+    assert.equal((await post(base, "/api/login", { login: "aliya", password: "wrong-password" })).status, 401);
+    const op = await post(base, "/api/login", { login: "aliya", password: "operator-pass-1" });
+    assert.equal(op.status, 200);
+    const opCookie = cookieOf(op);
+    assert.match(opCookie, /^vx_staff=vx1\./);
+    assert.equal((await fetch(base + "/console/api/turns", { headers: { cookie: opCookie } })).status, 200);
+    assert.equal((await fetch(base + "/console/api/leads.csv", { headers: { cookie: opCookie } })).status, 403);
+    const mg = await post(base, "/api/login", { login: "dana", password: "manager-pass-1" });
+    const mgCookie = cookieOf(mg);
+    const csv = await fetch(base + "/console/api/leads.csv", { headers: { cookie: mgCookie } });
+    assert.equal(csv.status, 200);
+    assert.match(await csv.text(), /AP-1/);
+    const forged = mgCookie.replace(/\.[^.]+$/, ".AAAA");
+    assert.equal((await fetch(base + "/console/api/turns", { headers: { cookie: forged } })).status, 403);
+    await post(base, "/api/logout", {}, { cookie: opCookie });
+    const after = await fetch(base + "/console/api/turns", { headers: { cookie: opCookie } });
+    assert.equal(after.status, 403);
+    assert.equal(((await after.json()) as { error: { code: string } }).error.code, "token_expired");
+    const kinds = feed.recent().map((event) => `${event.kind}:${String(event.data["action"] ?? event.data["what"])}`);
+    assert.deepEqual(kinds, ["auth:login_failed", "auth:login", "deny:leads.csv", "auth:login", "auth:export", "auth:logout"]);
+  });
+});

@@ -1,6 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
-import { passwordMatches, type Role } from "../auth/roles.ts";
+import { ROLE_LABELS, passwordMatches, type Role } from "../auth/roles.ts";
+import { StaffDirectory, makeAccount } from "../auth/staff.ts";
+import { TokenIssuer, type TokenCheck } from "../auth/token.ts";
+import type { LiveFeed } from "../trace/live.ts";
 import { isObject } from "../config/validate.ts";
 import type { ToolRegistry } from "../tools/crm.ts";
 import { CrmBusyError, CrmInputError, parseCrmTurn, type CrmBridge } from "../crm/bridge.ts";
@@ -24,6 +27,8 @@ import { SseStream } from "./sse.ts";
 import { serveStatic } from "./static.ts";
 
 export const SESSION_COOKIE = "vx_sid";
+/** Подписанный токен сотрудника (шаг 4): роль и срок жизни внутри, подделать нельзя. */
+export const STAFF_COOKIE = "vx_staff";
 const JSON_LIMIT_BYTES = 64 * 1024;
 const CRM_LIMIT_BYTES = 512 * 1024;
 
@@ -46,8 +51,16 @@ export interface AppDeps {
   readonly crm?: { readonly bridge: CrmBridge; readonly key: string };
   /** Инструменты CRM для MCP (шаг 3). */
   readonly tools?: ToolRegistry;
-  /** Пароль сотрудника (шаг 4). Без него вход выключен. */
+  /** Старый общий пароль: превращается в учётную запись "manager". */
   readonly managerPassword?: string;
+  /** Личные входы сотрудников (шаг 4). Без них вход выключен. */
+  readonly staff?: StaffDirectory;
+  /** Выдаёт и проверяет подписанные токены сотрудников. */
+  readonly tokens?: TokenIssuer;
+  /** Лента слежки в реальном времени (шаг 7). */
+  readonly feed?: LiveFeed;
+  /** Полная выгрузка заявок CSV: только менеджер и владелец. */
+  readonly leadsCsv?: () => string;
   /** Отдельный лимит на попытки входа: подбор пароля упирается в него. */
   readonly loginLimiter?: RateLimiter;
 }
@@ -76,8 +89,23 @@ export function createApp(deps: AppDeps): App {
   const clientIp = (req: IncomingMessage): string => clientAddress(req, deps.trustProxy === true);
   const sessionId = (req: IncomingMessage): string | undefined => parseCookies(req.headers.cookie).get(SESSION_COOKIE);
 
-  const isManager = (req: IncomingMessage): boolean => deps.sessions.find(sessionId(req))?.role === "manager";
-  const staffAllowed = (req: IncomingMessage): boolean => consoleAllowed(req) || isManager(req);
+  const directory =
+    deps.staff ??
+    new StaffDirectory(deps.managerPassword !== undefined && deps.managerPassword.length >= 8 ? [makeAccount("manager", "manager", deps.managerPassword)] : []);
+  const tokens = deps.tokens ?? new TokenIssuer({ ttlSec: deps.sessionTtlSec });
+  const tokenOf = (req: IncomingMessage): string | undefined => {
+    const header = req.headers.authorization ?? "";
+    return header.startsWith("Bearer vx1.") ? header.slice("Bearer ".length) : parseCookies(req.headers.cookie).get(STAFF_COOKIE);
+  };
+  const staffCheck = (req: IncomingMessage): TokenCheck => tokens.verify(tokenOf(req));
+  const roleOf = (req: IncomingMessage): Role => {
+    const check = staffCheck(req);
+    return check.ok ? check.claims.role : "client";
+  };
+  const staffAllowed = (req: IncomingMessage): boolean => consoleAllowed(req) || staffCheck(req).ok;
+  const deny = (req: IncomingMessage, what: string, role: Role, login: string | null): void => {
+    deps.feed?.publish("deny", { what, role, login, ip: maskIp(clientIp(req)) });
+  };
   const page =
     (file: string): Handler =>
     async (req, res) => {
@@ -91,9 +119,14 @@ export function createApp(deps: AppDeps): App {
     (req, res) =>
       staffAllowed(req)
         ? handler(req, res)
-        : Promise.reject(new HttpError(403, "staff_only", "Нужен вход сотрудника."));
+        : Promise.reject(
+            isExpired(staffCheck(req))
+              ? new HttpError(403, "token_expired", "Срок входа истёк. Войдите снова.")
+              : new HttpError(403, "staff_only", "Нужен вход сотрудника."),
+          );
 
-  const beginTurn = (session: Session, message: unknown): Turn => {
+  const beginTurn = (session: Session, message: unknown, role: Role): Turn => {
+    session.role = role;
     try {
       return deps.chat.begin(session.conversation, message, session.tag, session.role);
     } catch (error) {
@@ -128,7 +161,7 @@ export function createApp(deps: AppDeps): App {
       );
     }
     const { session } = deps.sessions.resolve(sessionId(req));
-    const turn = beginTurn(session, message);
+    const turn = beginTurn(session, message, roleOf(req));
     const controller = new AbortController();
     controllers.add(controller);
     // Клиент закрыл вкладку или нажал «Стоп»: прерываем запрос к модели, ответ не сохраняется.
@@ -189,7 +222,12 @@ export function createApp(deps: AppDeps): App {
 
   const history: Handler = (req, res) => {
     const session = deps.sessions.find(sessionId(req));
-    sendJson(res, 200, { messages: session?.conversation.transcript ?? [], role: session?.role ?? "client" });
+    const check = staffCheck(req);
+    sendJson(res, 200, {
+      messages: session?.conversation.transcript ?? [],
+      role: check.ok ? check.claims.role : "client",
+      staff: check.ok ? { login: check.claims.sub, role: check.claims.role, expiresAt: new Date(check.claims.exp * 1000).toISOString() } : null,
+    });
     return Promise.resolve();
   };
   const login: Handler = async (req, res) => {
@@ -203,15 +241,22 @@ export function createApp(deps: AppDeps): App {
         "retry-after": String(limit.retryAfterSec),
       });
     }
-    if (deps.managerPassword === undefined) {
-      throw new HttpError(503, "login_disabled", "Вход для сотрудников не настроен: на сервере не задан пароль.");
+    if (directory.size === 0) {
+      throw new HttpError(503, "login_disabled", "Вход для сотрудников не настроен: на сервере не заданы учётные записи.");
     }
-    if (!passwordMatches(isObject(body) ? body["password"] : undefined, deps.managerPassword)) {
-      throw new HttpError(401, "bad_password", "Неверный пароль.");
+    const fields = isObject(body) ? body : {};
+    const loginName = typeof fields["login"] === "string" && fields["login"].trim() !== "" ? fields["login"] : "manager";
+    const account = directory.verify(loginName, fields["password"]);
+    if (account === null) {
+      deps.feed?.publish("auth", { action: "login_failed", login: loginName.slice(0, 32), ip: maskIp(clientIp(req)) });
+      throw new HttpError(401, "bad_password", "Неверный логин или пароль.");
     }
-    const session = deps.sessions.elevate(sessionId(req), "manager");
-    sendJson(res, 200, { role: session.role }, {
-      "set-cookie": serializeCookie(SESSION_COOKIE, session.id, { maxAgeSec: deps.sessionTtlSec, secure: deps.secureCookies }),
+    const { token, claims } = tokens.issue(account.login, account.role);
+    // Диалог посетителя не переходит в диалог сотрудника.
+    deps.sessions.find(sessionId(req))?.conversation.reset();
+    deps.feed?.publish("auth", { action: "login", login: account.login, role: account.role, ttlSec: tokens.ttlSec, ip: maskIp(clientIp(req)) });
+    sendJson(res, 200, { role: account.role, roleLabel: ROLE_LABELS[account.role], login: account.login, expiresAt: new Date(claims.exp * 1000).toISOString() }, {
+      "set-cookie": serializeCookie(STAFF_COOKIE, token, { maxAgeSec: tokens.ttlSec, secure: deps.secureCookies }),
     });
   };
   const logout: Handler = async (req, res) => {
@@ -219,11 +264,16 @@ export function createApp(deps: AppDeps): App {
       throw new HttpError(403, "bad_origin", "Запрос с другого сайта отклонён.");
     }
     await readJson(req, JSON_LIMIT_BYTES);
+    const check = staffCheck(req);
+    if (check.ok) {
+      tokens.revoke(check.claims);
+      deps.feed?.publish("auth", { action: "logout", login: check.claims.sub, role: check.claims.role, ip: maskIp(clientIp(req)) });
+    }
     const session = deps.sessions.find(sessionId(req));
     if (session !== undefined) {
       session.role = "client";
     }
-    sendJson(res, 200, { role: "client" });
+    sendJson(res, 200, { role: "client" }, { "set-cookie": serializeCookie(STAFF_COOKIE, "", { maxAgeSec: 0, secure: deps.secureCookies }) });
   };
   const mcp: Handler = async (req, res) => {
     if (!isSameOrigin(req)) {
@@ -233,7 +283,9 @@ export function createApp(deps: AppDeps): App {
     if (deps.tools === undefined) {
       throw new HttpError(404, "not_found", "MCP не настроен.");
     }
-    const role: Role = "manager";
+    // Роль берётся из токена. Без токена MCP открыт только на компьютере, где запущен сервер, как менеджеру.
+    const check = staffCheck(req);
+    const role: Role = check.ok ? check.claims.role : "manager";
     const response = handleMcp(body, deps.tools, { role, unmask: (value) => value, now: Date.now() });
     if (response === null) {
       res.writeHead(202).end();
@@ -283,6 +335,53 @@ export function createApp(deps: AppDeps): App {
     sendJson(res, 200, await next);
   };
 
+  const live: Handler = (_req, res) => {
+    const feed = deps.feed;
+    if (feed === undefined) {
+      throw new HttpError(404, "not_found", "Лента не настроена.");
+    }
+    const sse = new SseStream(res, {}, 10_000);
+    sse.send("hello", { events: feed.recent(), watchers: feed.watchers + 1 });
+    const stop = feed.subscribe((event) => {
+      sse.send("event", event);
+    });
+    res.once("close", stop);
+    return Promise.resolve();
+  };
+
+  const leads: Handler = (req, res) => {
+    const check = staffCheck(req);
+    const role: Role = check.ok ? check.claims.role : consoleAllowed(req) ? "owner" : "client";
+    if (role !== "manager" && role !== "owner") {
+      deny(req, "leads.csv", role, check.ok ? check.claims.sub : null);
+      throw new HttpError(403, "forbidden", `Роль «${ROLE_LABELS[role]}» видит заявки, но не выгружает их. Выгрузка доступна менеджеру и владельцу.`);
+    }
+    if (deps.leadsCsv === undefined) {
+      throw new HttpError(404, "not_found", "Выгрузка не настроена.");
+    }
+    const csv = "\ufeff" + deps.leadsCsv();
+    deps.feed?.publish("auth", { action: "export", login: check.ok ? check.claims.sub : "localhost", role, ip: maskIp(clientIp(req)) });
+    res.writeHead(200, {
+      "content-type": "text/csv; charset=utf-8",
+      "content-disposition": 'attachment; filename="voronix-leads.csv"',
+      "cache-control": "no-store",
+    });
+    res.end(csv);
+    return Promise.resolve();
+  };
+
+  const access: Handler = (req, res) => {
+    const check = staffCheck(req);
+    sendJson(res, 200, {
+      me: check.ok ? { login: check.claims.sub, role: check.claims.role, expiresAt: new Date(check.claims.exp * 1000).toISOString() } : { login: "localhost", role: "owner", expiresAt: null },
+      tokenTtlSec: tokens.ttlSec,
+      roles: ROLE_LABELS,
+      matrix: deps.tools?.matrix() ?? [],
+      accounts: directory.list(),
+    });
+    return Promise.resolve();
+  };
+
   const json =
     (produce: () => unknown): Handler =>
     (_req, res) => {
@@ -305,6 +404,9 @@ export function createApp(deps: AppDeps): App {
     ["/v1/crm/turns/result", { POST: crmResult }],
     ["/console/api/overview", { GET: staff(json(() => deps.consoleInfo())) }],
     ["/console/api/turns", { GET: staff(json(() => ({ turns: deps.chat.log.list() }))) }],
+    ["/console/api/live", { GET: staff(live) }],
+    ["/console/api/leads.csv", { GET: staff(leads) }],
+    ["/console/api/access", { GET: staff(access) }],
   ]);
 
   const dispatch = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
@@ -369,4 +471,16 @@ function fail(res: ServerResponse, error: unknown): void {
 
 function formatWait(seconds: number): string {
   return seconds < 60 ? `${seconds} с` : `${Math.ceil(seconds / 60)} мин`;
+}
+
+/** В ленте слежки адрес виден не целиком: 203.0.113.x. */
+function maskIp(ip: string): string {
+  if (ip.includes(".")) {
+    return ip.split(".").slice(0, 3).join(".") + ".x";
+  }
+  return ip.split(":").slice(0, 3).join(":") + ":x";
+}
+
+function isExpired(check: TokenCheck): boolean {
+  return !check.ok && (check.reason === "expired" || check.reason === "revoked");
 }

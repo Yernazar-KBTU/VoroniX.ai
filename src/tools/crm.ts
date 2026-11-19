@@ -64,8 +64,16 @@ function integer(input: JsonObject, key: string, min: number, max: number, fallb
 export class ToolRegistry {
   readonly #specs: ReadonlyMap<string, ToolSpec>;
 
+  /** Кто-то попросил инструмент, которого нет у его роли: событие уходит в журнал доступа (шаг 4). */
+  onDeny: ((name: string, role: Role) => void) | null = null;
+
   constructor(specs: readonly ToolSpec[]) {
     this.#specs = new Map(specs.map((spec) => [spec.name, spec]));
+  }
+
+  /** Таблица прав: какие инструменты есть у каждой роли. Её показывает консоль. */
+  matrix(): readonly { readonly tool: string; readonly roles: readonly Role[] }[] {
+    return [...this.#specs.values()].map((spec) => ({ tool: spec.name, roles: spec.roles }));
   }
 
   forRole(role: Role): ToolSpec[] {
@@ -91,6 +99,7 @@ export class ToolRegistry {
       return { ok: false, error: `unknown_tool: ${name}` };
     }
     if (!spec.roles.includes(context.role)) {
+      this.onDeny?.(name, context.role);
       return { ok: false, error: "forbidden: this tool is not available for your role" };
     }
     if (typeof input !== "object" || input === null || Array.isArray(input)) {
@@ -229,7 +238,7 @@ export function crmTools(crm: DemoCrm): ToolSpec[] {
         type: "object",
         properties: { days_ahead: { type: "integer", minimum: 1, maximum: 14, description: "How many days ahead to look, 7 by default" } },
       },
-      roles: ["client", "manager"],
+      roles: ["client", "operator", "manager", "owner"],
       run: (input, context) => {
         const slots = crm.freeSlots(context.now, integer(input, "days_ahead", 1, 14, 7));
         return {
@@ -253,7 +262,7 @@ export function crmTools(crm: DemoCrm): ToolSpec[] {
         },
         required: ["slot_id", "name", "contact"],
       },
-      roles: ["client", "manager"],
+      roles: ["client", "operator", "manager", "owner"],
       run: (input, context) => {
         const contactRef = text(input, "contact", 120, true);
         const contact = context.unmask(contactRef);
@@ -286,7 +295,7 @@ export function crmTools(crm: DemoCrm): ToolSpec[] {
         type: "object",
         properties: { limit: { type: "integer", minimum: 1, maximum: 20, description: "How many leads, 10 by default" } },
       },
-      roles: ["manager"],
+      roles: ["operator", "manager", "owner"],
       run: (input) => ({
         ok: true,
         data: {
@@ -304,5 +313,26 @@ export function crmTools(crm: DemoCrm): ToolSpec[] {
         },
       }),
     },
+    {
+      name: "export_leads",
+      description:
+        "Prepare a full export of all demo requests (CSV with full contacts) for download from the staff console. Staff with the manager or owner role only. Returns the row count and the download path, never the contacts themselves.",
+      inputSchema: { type: "object", properties: {} },
+      roles: ["manager", "owner"],
+      run: () => ({
+        ok: true,
+        data: { rows: crm.leads().length, format: "csv", download: "/console/api/leads.csv", note: "Contacts are only in the file, not in this reply." },
+      }),
+    },
   ];
+}
+
+/** Выгрузка заявок CSV для владельца и менеджера (шаг 4). Значения экранируются, формулы Excel отключены. */
+export function leadsCsv(crm: DemoCrm): string {
+  const cell = (value: string): string => {
+    const safe = /^[=+\-@]/.test(value) ? `'${value}` : value;
+    return `"${safe.replaceAll('"', '""')}"`;
+  };
+  const rows = crm.leads().map((lead) => [lead.id, lead.name, lead.business, crm.label(lead.slotId), lead.contact, lead.note].map(cell).join(","));
+  return ["booking_id,name,business,slot,contact,note", ...rows].join("\r\n") + "\r\n";
 }

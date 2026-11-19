@@ -23,6 +23,8 @@ export interface TurnMeta {
   readonly tools?: readonly { readonly name: string; readonly ok: boolean }[];
   /** Что увидела защита (шаг 5). */
   readonly guard?: GuardInfo | null;
+  /** Как сработал кэш: тот же вопрос или похожий по смыслу (шаг 6). */
+  readonly cacheMatch?: { readonly kind: "exact" | "semantic"; readonly similarity: number } | null;
   readonly cacheReadTokens?: number | null;
   readonly cacheWriteTokens?: number | null;
 }
@@ -77,6 +79,7 @@ export interface TurnStats {
 export class TurnLog {
   readonly #capacity: number;
   readonly #records: TurnRecord[] = [];
+  readonly #listeners = new Set<(record: TurnRecord) => void>();
 
   constructor(capacity: number) {
     if (!Number.isInteger(capacity) || capacity < 1) {
@@ -90,6 +93,17 @@ export class TurnLog {
     if (this.#records.length > this.#capacity) {
       this.#records.shift();
     }
+    for (const listener of this.#listeners) {
+      listener(record);
+    }
+  }
+
+  /** Подписка на новые записи: так ответы попадают во вкладку слежки (шаг 7). */
+  subscribe(listener: (record: TurnRecord) => void): () => void {
+    this.#listeners.add(listener);
+    return () => {
+      this.#listeners.delete(listener);
+    };
   }
 
   /** Записи от новых к старым. */

@@ -115,7 +115,7 @@ describe("шаг 6: роутер и кэш", () => {
     cache.set("b", { text: "2", servedBy: "m", sources: [] });
     cache.set("c", { text: "3", servedBy: "m", sources: [] });
     assert.equal(cache.get("a"), undefined);
-    assert.deepEqual(cache.stats(), { hits: 1, misses: 2, size: 2 });
+    assert.deepEqual(cache.stats(), { hits: 1, semanticHits: 0, misses: 2, size: 2 });
   });
 });
 
@@ -162,7 +162,7 @@ describe("шаг 3: инструменты CRM и MCP", () => {
     const { tools, context } = setup();
     const call = (method: string, params: object = {}) => handleMcp({ jsonrpc: "2.0", id: 1, method, params }, tools, context("manager"));
     assert.deepEqual((call("initialize", { protocolVersion: "2025-06-18" })?.result as { protocolVersion: string }).protocolVersion, "2025-06-18");
-    assert.equal((call("tools/list")?.result as { tools: unknown[] }).tools.length, 3);
+    assert.equal((call("tools/list")?.result as { tools: unknown[] }).tools.length, 4);
     const slots = call("tools/call", { name: "list_demo_slots", arguments: {} })?.result as { isError: boolean; content: { text: string }[] };
     assert.equal(slots.isError, false);
     assert.match(slots.content[0]?.text ?? "", /S-2026/);
