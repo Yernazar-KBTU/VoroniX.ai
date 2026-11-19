@@ -1,4 +1,4 @@
-/* VoroniX.ai landing: a thin slit of light tilts up into a glowing screen on scroll, the page turns blue, the light floods the screen and the staff sign in appears behind it. */
+/* VoroniX.ai landing: a thin slit of light opens down into a glowing screen on scroll, the page turns blue, the light floods the screen and the staff sign in appears behind it. */
 (() => {
   "use strict";
   const hero = document.getElementById("hero");
@@ -12,7 +12,7 @@
   let queued = false;
   let leaving = false;
   function measure() {
-    win.style.setProperty("--tilt", "0deg");
+    win.style.setProperty("--sy", "1");
     win.style.setProperty("--s", "1");
     win.style.setProperty("--dy", "0px");
     const box = win.getBoundingClientRect();
@@ -27,7 +27,7 @@
     const zoom = ease(clamp((p - 0.35) / 0.55));
     const cover = Math.max(window.innerWidth / base.w, window.innerHeight / base.h) * 1.1;
     const root = document.documentElement.style;
-    win.style.setProperty("--tilt", ((1 - open) * 88).toFixed(2) + "deg");
+    win.style.setProperty("--sy", (0.03 + open * 0.97).toFixed(4));
     win.style.setProperty("--s", (1 + zoom * (cover - 1)).toFixed(4));
     win.style.setProperty("--dy", (zoom * (window.innerHeight / 2 - base.cy)).toFixed(1) + "px");
     root.setProperty("--open", open.toFixed(3));
