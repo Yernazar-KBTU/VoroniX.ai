@@ -42,6 +42,11 @@ export class RateLimiter {
     return { ok: true, retryAfterSec: 0 };
   }
 
+  /** Забывает попытки адреса: после успешного входа правильный пароль не должен приближать блокировку. */
+  forgive(key: string): void {
+    this.#hits.delete(key);
+  }
+
   #prune(now: number): void {
     for (const [key, times] of this.#hits) {
       if ((times.at(-1) ?? 0) <= now - this.#windowMs) {
