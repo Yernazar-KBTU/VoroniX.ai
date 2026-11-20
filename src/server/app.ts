@@ -102,6 +102,11 @@ export function createApp(deps: AppDeps): App {
     const check = staffCheck(req);
     return check.ok ? check.claims.role : "client";
   };
+  /** Роль в консоли: токен сотрудника, а на компьютере с сервером без входа это владелец. */
+  const consoleRole = (req: IncomingMessage): Role => {
+    const check = staffCheck(req);
+    return check.ok ? check.claims.role : consoleAllowed(req) ? "owner" : "client";
+  };
   const staffAllowed = (req: IncomingMessage): boolean => consoleAllowed(req) || staffCheck(req).ok;
   const deny = (req: IncomingMessage, what: string, role: Role, login: string | null): void => {
     deps.feed?.publish("deny", { what, role, login, ip: maskIp(clientIp(req)) });
@@ -235,7 +240,8 @@ export function createApp(deps: AppDeps): App {
       throw new HttpError(403, "bad_origin", "Запрос с другого сайта отклонён.");
     }
     const body = await readJson(req, JSON_LIMIT_BYTES);
-    const limit = (deps.loginLimiter ?? deps.rateLimiter).hit(`login:${clientIp(req)}`);
+    const loginKey = `login:${clientIp(req)}`;
+    const limit = (deps.loginLimiter ?? deps.rateLimiter).hit(loginKey);
     if (!limit.ok) {
       throw new HttpError(429, "rate_limited", `Слишком много попыток входа. Попробуйте через ${formatWait(limit.retryAfterSec)}.`, {
         "retry-after": String(limit.retryAfterSec),
@@ -251,6 +257,7 @@ export function createApp(deps: AppDeps): App {
       deps.feed?.publish("auth", { action: "login_failed", login: loginName.slice(0, 32), ip: maskIp(clientIp(req)) });
       throw new HttpError(401, "bad_password", "Неверный логин или пароль.");
     }
+    (deps.loginLimiter ?? deps.rateLimiter).forgive(loginKey);
     const { token, claims } = tokens.issue(account.login, account.role);
     // Диалог посетителя не переходит в диалог сотрудника.
     deps.sessions.find(sessionId(req))?.conversation.reset();
@@ -335,15 +342,20 @@ export function createApp(deps: AppDeps): App {
     sendJson(res, 200, await next);
   };
 
-  const live: Handler = (_req, res) => {
+  const live: Handler = (req, res) => {
     const feed = deps.feed;
     if (feed === undefined) {
       throw new HttpError(404, "not_found", "Лента не настроена.");
     }
+    // Оператор видит ответы ассистента. Входы, выходы, выгрузки и отказы с адресами видят менеджер и владелец.
+    const role = consoleRole(req);
+    const visible = (event: { readonly kind: string }): boolean => event.kind === "turn" || role === "manager" || role === "owner";
     const sse = new SseStream(res, {}, 10_000);
-    sse.send("hello", { events: feed.recent(), watchers: feed.watchers + 1 });
+    sse.send("hello", { events: feed.recent().filter(visible), watchers: feed.watchers + 1 });
     const stop = feed.subscribe((event) => {
-      sse.send("event", event);
+      if (visible(event)) {
+        sse.send("event", event);
+      }
     });
     res.once("close", stop);
     return Promise.resolve();
@@ -372,12 +384,14 @@ export function createApp(deps: AppDeps): App {
 
   const access: Handler = (req, res) => {
     const check = staffCheck(req);
+    const role = consoleRole(req);
     sendJson(res, 200, {
       me: check.ok ? { login: check.claims.sub, role: check.claims.role, expiresAt: new Date(check.claims.exp * 1000).toISOString() } : { login: "localhost", role: "owner", expiresAt: null },
       tokenTtlSec: tokens.ttlSec,
       roles: ROLE_LABELS,
       matrix: deps.tools?.matrix() ?? [],
-      accounts: directory.list(),
+      // Логины и роли сотрудников видит только владелец: по ним подбирают пароли.
+      accounts: role === "owner" ? directory.list() : [],
     });
     return Promise.resolve();
   };
