@@ -8,6 +8,17 @@
   const money = (v) => (v ? "$" + v.toFixed(4) : "$0");
   const ms = (v) => (v == null ? "" : v >= 1000 ? (v / 1000).toFixed(2) + " s" : Math.round(v) + " ms");
   const clock = (iso) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  /* Turn outcomes as the server writes them (src/chat/turn-log.ts). "ok" and "error" are kept so older logs still read correctly. */
+  const OUTCOME = {
+    answered: ["Info", "Answer sent"],
+    ok: ["Info", "Answer sent"],
+    truncated: ["Warning", "Answer cut off"],
+    refused: ["Warning", "Answer refused"],
+    cancelled: ["Warning", "Answer stopped"],
+    failed: ["Warning", "Answer failed"],
+    error: ["Warning", "Answer failed"],
+    blocked: ["Warning", "Answer blocked"],
+  };
 
   function toast(text, bad) {
     const node = $("toast");
@@ -44,9 +55,8 @@
       if (!g || !g.blocked) {
         if (d.route && !d.cached) row("Info", d.route.tier === "fast" ? "Routed to fast model" : "Routed to smart model", "Router", d.route.model + " · " + d.route.reason, 0, 0);
         if ((d.sources || []).length) row("Info", "Knowledge retrieved", "Search", d.sources.map((s) => s.title).join(", "), null, 0);
-        const bad = d.outcome && d.outcome !== "ok";
-        const label = d.outcome === "refused" ? "Answer refused" : d.outcome === "truncated" ? "Answer cut off" : d.outcome === "error" ? "Answer failed" : d.outcome === "cancelled" ? "Answer stopped" : "Answer sent";
-        if (!d.cached) row(bad ? "Warning" : "Info", label, "Model", (d.servedBy || d.model || "model") + (d.inputTokens != null ? " · " + d.inputTokens + " in, " + d.outputTokens + " out" : ""), d.totalMs, d.costUsd);
+        const [outSev, label] = !d.outcome ? OUTCOME.answered : OUTCOME[d.outcome] || ["Warning", "Answer: " + d.outcome];
+        if (!d.cached) row(outSev, label, "Model", (d.servedBy || d.model || "model") + (d.inputTokens != null ? " · " + d.inputTokens + " in, " + d.outputTokens + " out" : ""), d.totalMs, d.costUsd);
       }
     } else if (event.kind === "auth") {
       const a = d.action;
